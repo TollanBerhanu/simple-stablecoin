@@ -19,9 +19,7 @@ index-state:
 
 packages: 
     Utilities
-    simple-mint-sc/On-Chain
-    even-odd-state-machine
-    simple-stablecoin/On-Chain
+    code/on-chain
 
 -- We never, ever, want this.
 write-ghc-environment-files: never
