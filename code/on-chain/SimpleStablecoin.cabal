@@ -1,8 +1,8 @@
 cabal-version:      3.4
-name:               DappStarterTemplate
+name:               SimpleStablecoin
 version:            0.1.0.0
-author:             Author_Name
-maintainer:         author@email.io
+author:             Tollan
+maintainer:         education@iohk.io
 license:            Apache-2.0
 build-type:         Simple
 
@@ -34,5 +34,10 @@ library
     import:             common-all
     hs-source-dirs:     scripts
     exposed-modules:    NFTPolicy
-                        -- Other Validators / Policies
+                        OracleValidator
+                        ReserveValidator
+                        StablecoinPolicy
+                        -- zOracleValidator
+                        -- zReserveValidator
+                        -- zTokenMintingPolicy
 						
