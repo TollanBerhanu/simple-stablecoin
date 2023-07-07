@@ -38,7 +38,7 @@ const User = () => {
                 </div>
 
                 <div className="flex-1">
-                    <ConnectWallet />
+                    <ConnectWallet dbState={ false } />
                 </div>
 
             </div>
