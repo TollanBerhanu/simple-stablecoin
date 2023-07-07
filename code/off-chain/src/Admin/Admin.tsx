@@ -15,18 +15,19 @@ const Admin = () => {
                     <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.5 8V4.5a3.5 3.5 0 1 0-7 0V8M8 12v3M2 8h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/>
                   </svg>
         },
+
+        {
+            name: 'Deploy Oracle',
+            route: 'update-oracle',
+            icon: <svg className="w-4 h-4 mr-2 text-gray-400 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 14 3-3m-3 3 3 3m-3-3h16v-3m2-7-3 3m3-3-3-3m3 3H3v3"/>
+                  </svg>
+        },
         {
             name: 'Deploy Scripts',
             route: 'deploy-scripts',
             icon: <svg className="w-4 h-4 mr-2 text-gray-400 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
                     <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                  </svg>
-        },
-        {
-            name: 'Update Oracle',
-            route: 'update-oracle',
-            icon: <svg className="w-4 h-4 mr-2 text-gray-400 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 14 3-3m-3 3 3 3m-3-3h16v-3m2-7-3 3m3-3-3-3m3 3H3v3"/>
                   </svg>
         }
     ]
@@ -45,7 +46,7 @@ const Admin = () => {
                 </div>
 
                 <div className="flex-1 items-center">
-                    <ConnectWallet />
+                    <ConnectWallet dbState={ true } />
                 </div>
             </div>
             
