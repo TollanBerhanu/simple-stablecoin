@@ -6,18 +6,77 @@ import {
 } from 'react-router-dom';
 import Layout from './Layout/Layout';
 import { Address, Blockfrost, Lucid } from 'lucid-cardano';
+import axios from 'axios';
 
-
+// ***************************************** Global App State **********************************************
 export type AppState = {
   lucid?: Lucid;
-  walletAddress?: Address;
+  currentWalletAddress?: Address;
   nftTokenNameHex?: string;
-  default?: string
+
+  stablecoinTokenName?: string;
+
+  mintAllowed?: boolean;
+  burnAllowed?: boolean;
+  rate?: number;
+
+  developerAddress?: string;
+
+  default?: string;
+
+  metadata?: any;
+  serialized?: any;
+  // metadata?: {
+  //   id: number;
+  //   mintAllowed: boolean;
+  //   burnAllowed: boolean;
+  //   rate: number;
+    
+  //   developerAddress: string;
+  //   stablecoinTokenName: string;
+  //   nftTokenName: string;
+
+  //   nftPolicyId: string;
+  //   oraclePolicyId: string;
+  //   reservePolicyId: string;
+  //   stablecoinPolicyId: string;
+  // }
 }
+// *********************************************************************************************************
+
+// nftPolicyId
+// nftTokenName
+// oraclePolicyId
+// rate
+// reservePolicyId
+// stablecoinPolicyId
+// stablecoinTokenName
 
 const initialAppState: AppState = {
-  default: 'default'
-};
+  metadata: {
+    id: 0,
+    mintAllowed: false,
+    burnAllowed: false,
+    rate: 0,
+    
+    developerAddress: '',
+    stablecoinTokenName: '',
+    nftTokenName: '',
+
+    nftPolicyId: '',
+    oraclePolicyId: '',
+    reservePolicyId: '',
+    stablecoinPolicyId: '',
+  },
+
+  serialized: {
+    id: '',
+    nft: '',
+    oracle: '',
+    reserve: '',
+    stablecoin: '',
+  }
+}
 
 export const AppStateContext = createContext<{
   appState: AppState;
@@ -26,7 +85,7 @@ export const AppStateContext = createContext<{
 
 export default function App() {
 
-  const [appState, setAppState] = useState<AppState>({})  // {} is the initial AppState
+  const [appState, setAppState] = useState<AppState>(initialAppState)  // {} is the initial AppState
 
   const getLucidInstance = async (): Promise<Lucid> => {
     const lucid = await Lucid.new(
@@ -44,18 +103,75 @@ export default function App() {
       lucid.selectWallet(nami);
 
       setAppState({
+        ...appState,
         lucid: lucid,
-        walletAddress: await lucid.wallet.address()
+        currentWalletAddress: await lucid.wallet.address()
       })
 
       return lucid;
   };
 
   useEffect(() => {
-    if (appState.lucid) return;
-    getLucidInstance();
-  }, [appState]);
+    
+    axios.get('/metadata/-1')
+        .then(res => {
+            console.log('Metadata: ')
+            console.log(res.data)
+            setAppState({
+              ...appState,
+              metadata: {
+                id: res.data.id,
+                mintAllowed: res.data.mintAllowed,
+                burnAllowed: res.data.burnAllowed,
+                rate: res.data.rate,
+                
+                developerAddress: res.data.developerAddress,
+                stablecoinTokenName: res.data.stablecoinTokenName,
+                nftTokenName: res.data.nftTokenName,
 
+                nftPolicyId: res.data.nftPolicyId,
+                oraclePolicyId: res.data.oraclePolicyId,
+                reservePolicyId: res.data.reservePolicyId,
+                stablecoinPolicyId: res.data.stablecoinPolicyId
+              },
+
+              serialized: {
+                id: res.data.id,
+                nft: res.data.nft,
+                oracle: res.data.oracle,
+                reserve: res.data.reserve,
+                stablecoin: res.data.stablecoin,
+              }
+            })
+            console.log(appState)
+        })
+
+    axios.get('/serialized/-1')
+    .then((res) => { 
+      setAppState({
+        ...appState,
+        serialized: {
+          id: res.data.id,
+          nft: res.data.nft,
+          oracle: res.data.oracle,
+          reserve: res.data.reserve,
+          stablecoin: res.data.stablecoin,
+        }
+      })
+    })
+
+    // if (appState.lucid) return;
+    // getLucidInstance();
+
+  }, [])
+
+  useEffect(() => {
+
+    if (appState.lucid) return;
+    // getLucidInstance();
+
+  }, [appState]);
+  
   return (
     <Router>
       <Routes>
