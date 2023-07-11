@@ -4,10 +4,11 @@ const cors = require("cors");
 const app = express();
 
 var corsOptions = {
-  origin: "http://localhost:8081"
+  origin: "http://localhost:8080"
 };
 
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));  // This is very restrictive and doesn't allow requests from a docker container for some reason
+app.use(cors());
 
 // parse requests of content-type - application/json
 app.use(express.json());
