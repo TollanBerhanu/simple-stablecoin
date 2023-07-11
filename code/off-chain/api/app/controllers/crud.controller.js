@@ -16,7 +16,8 @@ exports.findAll = model => (req, res) => {
 //   const title = req.query.title; // Filter by query parameters
 //   var condition = title ? { title: { [Op.iLike]: `%${title}%` } } : null;
 
-  model.findAll({ where: true })
+  // model.findAll({ where: condition })
+  model.findAll()
     .then(data => {
       res.send(data);
     })
