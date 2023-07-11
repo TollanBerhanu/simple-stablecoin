@@ -32,21 +32,37 @@ exports.findAll = model => (req, res) => {
 exports.findOne = model => (req, res) => {
   const id = req.params.id;
 
-  model.findByPk(id)
-    .then(data => {
-      res.send(data);
-    })
-    .catch(err => {
-      res.status(500).send({
-        message: "Error retrieving data with id=" + id
+  // Return with the last element if the id is negative
+  if (id < 0) {   
+    model.findAll()
+      .then(data => {
+        res.send(data.at(-1));
+      })
+      .catch(err => {
+        res.status(500).send({
+          message:
+            err.message || "Some error occurred while fetching data."
+        });
       });
-    });
+  }
+  // Otherwise, return the data with the given positive id
+  else {
+    model.findByPk(id)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(err => {
+        res.status(500).send({
+          message: "Error retrieving data with id=" + id
+        });
+      });
+  }
 };
 
 // Update a model by the id in the request
 exports.updateOne = model => (req, res) => {
-//   const id = req.params.id;
-  const id = 1 // We only need one row
+  const id = req.params.id;
+  // const id = 1 // We only need one row
 
   model.update(req.body, {
     where: { id: id }
