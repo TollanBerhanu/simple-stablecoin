@@ -20,5 +20,6 @@ db.sequelize = sequelize;
 
 db.tutorials = require("./tutorial.model.js")(sequelize, Sequelize);
 db.serialized = require("./serialized.model.js")(sequelize, Sequelize);
+db.metadata = require("./metadata.model.js")(sequelize, Sequelize);
 
 module.exports = db;

@@ -10,19 +10,19 @@ module.exports = app => {
     router.post("/", serialized.createOne(serialized_model));
   
     // Retrieve all
-    router.get("/", serialized_model.findAll);
+    router.get("/", serialized.findAll(serialized_model));
   
     // Retrieve one
-    router.get("/:id", serialized_model.findOne);
+    router.get("/:id", serialized.findOne(serialized_model));
   
     // Update one
-    router.put("/:id", serialized_model.updateOne);
+    router.put("/:id", serialized.updateOne(serialized_model));
   
     // Delete one
-    router.delete("/:id", serialized_model.deleteOne);
+    router.delete("/:id", serialized.deleteOne(serialized_model));
   
     // Delete all
-    router.delete("/", serialized_model.deleteAll);
+    router.delete("/", serialized.deleteAll(serialized_model));
   
     app.use("/api/serialized", router);
   };
