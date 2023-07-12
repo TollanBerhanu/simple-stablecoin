@@ -44,19 +44,11 @@ export type AppState = {
 }
 // *********************************************************************************************************
 
-// nftPolicyId
-// nftTokenName
-// oraclePolicyId
-// rate
-// reservePolicyId
-// stablecoinPolicyId
-// stablecoinTokenName
-
 const initialAppState: AppState = {
   metadata: {
     id: 0,
-    mintAllowed: false,
-    burnAllowed: false,
+    mintAllowed: true,
+    burnAllowed: true,
     rate: 0,
     
     developerAddress: '',
@@ -112,11 +104,13 @@ export default function App() {
   };
 
   useEffect(() => {
-    
+  
     axios.get('/metadata/-1')
         .then(res => {
-            console.log('Metadata: ')
-            console.log(res.data)
+
+          axios.get('/serialized/-1')
+          .then((res2) => { 
+
             setAppState({
               ...appState,
               metadata: {
@@ -134,31 +128,17 @@ export default function App() {
                 reservePolicyId: res.data.reservePolicyId,
                 stablecoinPolicyId: res.data.stablecoinPolicyId
               },
-
               serialized: {
-                id: res.data.id,
-                nft: res.data.nft,
-                oracle: res.data.oracle,
-                reserve: res.data.reserve,
-                stablecoin: res.data.stablecoin,
+                id: res2.data.id,
+                nft: res2.data.nft,
+                oracle: res2.data.oracle,
+                reserve: res2.data.res2erve,
+                stablecoin: res2.data.stablecoin,
               }
             })
-            console.log(appState)
+            
+          })
         })
-
-    axios.get('/serialized/-1')
-    .then((res) => { 
-      setAppState({
-        ...appState,
-        serialized: {
-          id: res.data.id,
-          nft: res.data.nft,
-          oracle: res.data.oracle,
-          reserve: res.data.reserve,
-          stablecoin: res.data.stablecoin,
-        }
-      })
-    })
 
     // if (appState.lucid) return;
     // getLucidInstance();
@@ -168,7 +148,7 @@ export default function App() {
   useEffect(() => {
 
     if (appState.lucid) return;
-    // getLucidInstance();
+    getLucidInstance();
 
   }, [appState]);
   
