@@ -1,16 +1,16 @@
 module.exports = (sequelize, Sequelize) => {
     const Serialized = sequelize.define("serialized_scripts", {
       nft: {
-        type: Sequelize.STRING
+        type: Sequelize.TEXT
       },
       oracle: {
-        type: Sequelize.STRING
+        type: Sequelize.TEXT
       },
       reserve: {
-        type: Sequelize.STRING
+        type: Sequelize.TEXT
       },
       stablecoin: {
-        type: Sequelize.STRING
+        type: Sequelize.TEXT
       }
     });
   
