@@ -1,6 +1,113 @@
-import React from "react";
+import React, { useState, useContext } from "react";
+import { AppStateContext } from "../../App";
+import { Data, MintingPolicy, PaymentKeyHash, PolicyId, SpendingValidator, Unit, applyParamsToScript, fromText, getAddressDetails } from "lucid-cardano";
+import axios from "axios";
+import { signAndSubmitTx } from "../../Utilities/utilities";
 
 const UpddateOracle = () => {
+
+    const { appState, setAppState } = useContext(AppStateContext)
+    const { lucid, currentWalletAddress, metadata, serialized, serializedParam } = appState
+
+    // const [rate, setRate] = useState<bigint>(metadata.rate)
+    const [rate, setRate] = useState<any>(100n)
+    const [mintAllowed, setMintAllowed] = useState<boolean>(metadata.mintAllowed)
+    const [burnAllowed, setBurnAllowed] = useState<boolean>(metadata.burnAllowed)
+    const [serializedOracle, setSerializedOracle] = useState<string>(serialized.oracle)
+
+    type GetFinalScript = {
+        oracleValidator: SpendingValidator;
+        nftAssetClass: Unit;
+    };
+
+    const getFinalScript = async (pkh: PaymentKeyHash): Promise<GetFinalScript> => {
+        
+        const nftPolicy: MintingPolicy = {
+            type: "PlutusV2",
+            script: serializedParam.nftParam
+        };
+        const nftPolicyId: PolicyId = lucid!.utils.mintingPolicyToId(nftPolicy);
+        const nftTokenName = fromText(metadata.nftTokenName); 
+        const nftAssetClass: Unit = nftPolicyId + nftTokenName;   // This is the asset class of the NFT
+        
+        // if (!lucid || !nftPolicyId || !nftTokenName) return;  // Get the PolicyId and TokenName from global state
+
+        const Params = Data.Tuple([Data.Bytes(), Data.Bytes(), Data.Bytes()]); // NFT PolicyId (CurSym) -> NFT TokenName -> Operator PubKeyHash
+        type Params = Data.Static<typeof Params>;
+        const oracleValidator: SpendingValidator = {
+            type: "PlutusV2",
+            script: applyParamsToScript<any>(   // <Params>
+                serializedOracle,
+                [nftPolicyId, nftTokenName, pkh],
+                Params
+            ),
+        };
+        return {oracleValidator, nftAssetClass};    // return the oracle validator
+    };
+
+    // ======= Helper function to cast the rate type to bigint
+    const OracleDatum = Data.Object({   // Define the datatype of the collateral datum
+        mintAllowed: Data.Boolean(),
+        burnAllowed: Data.Boolean(),
+        rate: Data.Integer(),
+    });
+    type OracleDatum = Data.Static<typeof OracleDatum>;
+
+    const parseRate = (r: string) => {      // Convert rate from string to a bigint number
+        const rate = BigInt(Number(r));
+        if (Number.isNaN(rate)) alert('Invalid rate!');
+        setRate(rate);          // Update rate state
+    };
+
+    const deployOracle = async () => {
+        if (!lucid || currentWalletAddress != metadata.developerAddress) { // check if lucid is connected and that we have an address (our wallet is connected)
+            alert("Please connect to the developer's wallet!");
+            return;
+        }
+        const pkh: string = getAddressDetails(metadata.developerAddress).paymentCredential?.hash || ""; // Get the PubKeyHash of our address's paymentCredential
+        const { oracleValidator, nftAssetClass } = await getFinalScript(pkh);   // Use our pubkeyHash as a parameter to the script
+
+        if (!oracleValidator || !serializedParam.nftParam) {
+            alert("Please mint NFT first!");
+            return;
+        }
+        const oracleAddress = lucid!.utils.validatorToAddress(oracleValidator);  // Get the address of the final oracle script to send the UTxO (NFT + Datum) to
+
+        console.log("final oracle script: ", oracleValidator);
+        console.log("final oracle address: ", oracleAddress);
+        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate }
+
+        const tx = await lucid! //  build the txn that deploys the oracle
+            .newTx()
+            .payToContract(
+                oracleAddress,
+                { inline: Data.to<OracleDatum>(oracleDatum) },  // Set the inline datum to the USD/ADA rate ... rate probably has type errors. It should be of type: TUnsafe<bigint>
+                { [nftAssetClass]: 1n }                  // We 'pay' 1 NFT to the oracleAddress
+            )
+            .addSignerKey(pkh)
+            .complete();
+        const oracleRefUTxO = await signAndSubmitTx(tx);
+
+        axios.put(`/metadata/${metadata.id}`, {
+            ...metadata,
+            rate: rate,
+            mintAllowed: mintAllowed,
+            burnAllowed: burnAllowed,
+            oracleAddress: oracleAddress,
+            oracleRefScript: oracleRefUTxO
+        })
+
+        axios.put(`/serialized/${serialized.id}`, {
+            ...serialized,
+            oracle: serializedOracle
+        })
+        
+        axios.put(`/serialized-param/${serializedParam.id}`, {
+            ...serializedParam,
+            oracleParam: oracleValidator.script
+        })
+
+    };
 
     return (
         <section className="py-8 px-4 m-6">
@@ -14,26 +121,31 @@ const UpddateOracle = () => {
             <form className="mt-8 space-y-6" action="#">
                 
                 <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray">Serialized Oracle Validator ... </label>
-                <textarea id="message" rows={4} className="my-5 block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Oracle CBorHex ..." required></textarea>
+                <textarea rows={4} className="my-5 block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Oracle CBorHex ..." required
+                          value={ serializedOracle } onChange={ (e) => setSerializedOracle(e.target.value) } ></textarea>
 
                 <div>
                     <label  className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray"> USD / ADA Rate </label>
-                    <input type="text" name="" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray-800 dark:focus:ring-blue-200 dark:focus:border-blue-200 mt-5" placeholder="Rate ..." required />
+                    <input type="number" name="" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray-800 dark:focus:ring-blue-200 dark:focus:border-blue-200 mt-5" placeholder="Rate ..." required
+                           value={ Number(rate) } onChange={ (e) => parseRate( e.target.value ) } />
                 </div>
 
 
                 <div className="flex items-center pl-4 border border-gray-200 rounded-lg dark:border-gray-300">
-                    <input id="bordered-checkbox-1" type="checkbox" value="" name="bordered-checkbox" className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
-                    <label className="w-full py-4 ml-2 text-sm font-medium text-gray-900 dark:text-gray-700">Minting Allowed</label>
+                    <input id="bordered-checkbox-1" type="checkbox" value="" name="bordered-checkbox" className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                           checked={ mintAllowed } onChange={ (e) => setMintAllowed(e.target.checked) } />
+                    <label htmlFor="bordered-checkbox-1" className="w-full py-4 ml-2 text-sm font-medium text-gray-900 dark:text-gray-700">Minting Allowed</label>
                 {/* </div>
                 <div className="flex items-center pl-4 border border-gray-200 rounded-lg dark:border-gray-600"> */}
-                    <input id="bordered-checkbox-2" type="checkbox" value="" name="bordered-checkbox" className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
-                    <label className="w-full py-4 ml-2 text-sm font-medium text-gray-900 dark:text-gray-700">Burning Allowed</label>
+                    <input id="bordered-checkbox-2" type="checkbox" value="" name="bordered-checkbox" className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                           checked={ burnAllowed } onChange={ (e) => setBurnAllowed(e.target.checked) } />
+                    <label htmlFor="bordered-checkbox-2" className="w-full py-4 ml-2 text-sm font-medium text-gray-900 dark:text-gray-700">Burning Allowed</label>
                 </div>
 
 
                 {/* <div className="inline-flex justify-center"> */}
-                    <button type="submit" className="w-2/5 px-5 py-2 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 text-lg"> Deploy Oracle </button>
+                    <button type="button" className="w-2/5 px-5 py-2 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 text-lg"
+                            onClick={ deployOracle } > Deploy Oracle </button>
                     {/* <button type="button" className="w-2/4 px-5 py-3 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-pink-500 to-orange-400 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-pink-200 dark:focus:ring-pink-800"> Delete Oracle </button> */}
                     <button type="button" className="w-2/5 px-5 py-2 mx-5 text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-lg">Delete Oracle</button>
 

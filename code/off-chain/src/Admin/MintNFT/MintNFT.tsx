@@ -14,7 +14,7 @@ import axios from "axios";
 const MintNFT = () => {
 
     const { appState, setAppState } = useContext(AppStateContext)
-    const { lucid, currentWalletAddress, metadata, serialized } = appState
+    const { lucid, currentWalletAddress, metadata, serialized, serializedParam } = appState
 
     const [tokenName, setTokenName] = useState<string>(metadata.nftTokenName)
     const [devAddress, setDevAddress] = useState<Address>(metadata.developerAddress)  // useEffect(() => { setDevAddress(metadata.developerAddress) }, [metadata.developerAddress])
@@ -39,7 +39,7 @@ const MintNFT = () => {
         type Params = Data.Static<typeof Params>;
         const nftPolicy: MintingPolicy = {
             type: "PlutusV2",
-            script: applyParamsToScript<any>(
+            script: applyParamsToScript<any>(   // <Params>
                 serializedNFT,
                 [utxo.txHash, BigInt(utxo.outputIndex)],
                 Params
@@ -62,7 +62,6 @@ const MintNFT = () => {
     const mintNFT = async () => {
         console.log(appState)
         const wAddr: Address = devAddress
-        console.log("minting NFT for " + wAddr);
         if (wAddr) {    // Check if we have an address (a connected wallet)
             const utxo = await getUtxo(wAddr);     // get the first UTxO from the address
             const { nftPolicy, unit } = await getFinalPolicy(utxo);     // serialize the NFT minting policy using the UTxO as a parameter
@@ -74,17 +73,24 @@ const MintNFT = () => {
                 .collectFrom([utxo])    // make sure we consume the UTxO
                 .complete();
 
-            // await signAndSubmitTx(tx);
+            const nftTxHash = await signAndSubmitTx(tx);
             
             // Update the database with new values in the form fields
             await axios.put(`/metadata/${metadata.id}`, {
                 ...metadata,
+                developerAddress: devAddress,
                 nftTokenName: tokenName,
-                developerAddress: devAddress
+                nftRefScript: nftTxHash
             })
+            
             await axios.put(`/serialized/${serialized.id}`, {
                 ...serialized,
                 nft: serializedNFT
+            })
+            
+            await axios.put(`/serialized-param/${serializedParam.id}`, {
+                ...serializedParam,
+                nftParam: nftPolicy.script
             })
         }
     };
@@ -125,7 +131,9 @@ const MintNFT = () => {
                     Mint NFT
 
                 </button>
+
             </form>
+
             {/* </div> */}
 
             {/* <button type="button" className="text-white bg-gradient-to-r from-cyan-500 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-cyan-300 dark:focus:ring-cyan-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center mr-2 mb-2">

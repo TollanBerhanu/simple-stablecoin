@@ -5,15 +5,15 @@ import {
     Route
 } from 'react-router-dom';
 import Layout from './Layout/Layout';
-import { Address, Blockfrost, Lucid } from 'lucid-cardano';
+import { Address, Blockfrost, Lucid, MintingPolicy } from 'lucid-cardano';
 import axios from 'axios';
 
 // ***************************************** Global App State **********************************************
 export type AppState = {
   lucid?: Lucid;
   currentWalletAddress?: Address;
-  nftTokenNameHex?: string;
-
+  
+  nftTokenName?: string;
   stablecoinTokenName?: string;
 
   mintAllowed?: boolean;
@@ -21,26 +21,13 @@ export type AppState = {
   rate?: number;
 
   developerAddress?: string;
-
-  default?: string;
+  oracleAddress?: string;
+  reserveAddress?: string;
 
   metadata?: any;
   serialized?: any;
-  // metadata?: {
-  //   id: number;
-  //   mintAllowed: boolean;
-  //   burnAllowed: boolean;
-  //   rate: number;
-    
-  //   developerAddress: string;
-  //   stablecoinTokenName: string;
-  //   nftTokenName: string;
-
-  //   nftPolicyId: string;
-  //   oraclePolicyId: string;
-  //   reservePolicyId: string;
-  //   stablecoinPolicyId: string;
-  // }
+  serializedParam?: any;
+  
 }
 // *********************************************************************************************************
 
@@ -52,13 +39,16 @@ const initialAppState: AppState = {
     rate: 0,
     
     developerAddress: '',
+    oracleAddress: '',
+    reserveAddress: '',
+
     stablecoinTokenName: '',
     nftTokenName: '',
 
-    nftPolicyId: '',
-    oraclePolicyId: '',
-    reservePolicyId: '',
-    stablecoinPolicyId: '',
+    nftRefScript: '',
+    oracleRefScript: '',
+    reserveRefScript: '',
+    stablecoinRefScript: '',
   },
 
   serialized: {
@@ -67,6 +57,14 @@ const initialAppState: AppState = {
     oracle: '',
     reserve: '',
     stablecoin: '',
+  },
+
+  serializedParam: {
+    id: '',
+    nftParam: '',
+    oracleParam: '',
+    reserveParam: '',
+    stablecoinParam: '',
   }
 }
 
@@ -109,32 +107,48 @@ export default function App() {
         .then(res => {
 
           axios.get('/serialized/-1')
-          .then((res2) => { 
+          .then((res2) => {
 
-            setAppState({
-              ...appState,
-              metadata: {
-                id: res.data.id,
-                mintAllowed: res.data.mintAllowed,
-                burnAllowed: res.data.burnAllowed,
-                rate: res.data.rate,
-                
-                developerAddress: res.data.developerAddress,
-                stablecoinTokenName: res.data.stablecoinTokenName,
-                nftTokenName: res.data.nftTokenName,
+            axios.get('/serialized-param/-1')
+            .then((res3) => {
 
-                nftPolicyId: res.data.nftPolicyId,
-                oraclePolicyId: res.data.oraclePolicyId,
-                reservePolicyId: res.data.reservePolicyId,
-                stablecoinPolicyId: res.data.stablecoinPolicyId
-              },
-              serialized: {
-                id: res2.data.id,
-                nft: res2.data.nft,
-                oracle: res2.data.oracle,
-                reserve: res2.data.res2erve,
-                stablecoin: res2.data.stablecoin,
-              }
+              setAppState({
+                ...appState,
+                metadata: {
+                  id: res.data.id,
+                  mintAllowed: res.data.mintAllowed,
+                  burnAllowed: res.data.burnAllowed,
+                  rate: res.data.rate,
+                  
+                  developerAddress: res.data.developerAddress,
+                  oracleAddress: res.data.oracleAddress,
+                  reserveAddress: res.data.reserveAddress,
+
+                  stablecoinTokenName: res.data.stablecoinTokenName,
+                  nftTokenName: res.data.nftTokenName,
+
+                  nftRefScript: res.data.nftRefScript,
+                  oracleRefScript: res.data.oracleRefScript,
+                  reserveRefScript: res.data.reserveRefScript,
+                  stablecoinRefScript: res.data.stablecoinRefScript
+                },
+                serialized: {
+                  id: res2.data.id,
+                  nft: res2.data.nft,
+                  oracle: res2.data.oracle,
+                  reserve: res2.data.res2erve,
+                  stablecoin: res2.data.stablecoin,
+                },
+                serializedParam: {
+                  id: res3.data.id,
+                  nftParam: res3.data.nftParam,
+                  oracleParam: res3.data.oracleParam,
+                  reserveParam: res3.data.res2erveParam,
+                  stablecoinParam: res3.data.stablecoinParam,
+
+                }
+              })
+
             })
             
           })
