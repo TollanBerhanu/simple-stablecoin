@@ -45,11 +45,11 @@ unstableMakeIsData ''StablecoinRedeemer
 {-# INLINABLE mkStablecoinMintingpolicy #-}
 mkStablecoinMintingpolicy :: StablecoinMintParams -> StablecoinRedeemer -> ScriptContext -> Bool
 mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
-                                                Mint ->  traceIfFalse "Minting is not allowed!" (fst mint_burn) && -- This is false when minting is'nt allowed, but we are minting
+                                                Mint ->  traceIfFalse "Minting is not allowed!" canMint && -- This is false when minting is'nt allowed, but we are minting
                                                          traceIfFalse "You can't mint a negative value!" minting &&
                                                          traceIfFalse "Insufficient amount paid to reserve while minting!" checkEnoughPaidToReserve
                                                          
-                                                Burn ->  traceIfFalse "Burning is not allowed!" (snd mint_burn)  && -- This is false when minting is'nt allowed, but we are minting
+                                                Burn ->  traceIfFalse "Burning is not allowed!" canBurn  && -- This is false when minting is'nt allowed, but we are minting
                                                          traceIfFalse "You can't burn a positive value!" $ not minting &&
                                                          traceIfFalse "You can't take that much ADA for those amount of stablecoins!" checkReceivedAmountOnBurn 
                                                          -- check if we are consuming UTxOs from the reserve
@@ -73,8 +73,11 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
                         Just d  -> d
                         Nothing -> traceError "StablecoinMintingPolicy: Invalid Oracle input datum!"
 
-        mint_burn :: (Bool, Bool)
-        mint_burn = mintorburn oracleDatum
+        canMint :: Bool
+        canMint = mintAllowed oracleDatum
+
+        canBurn :: Bool
+        canBurn = burnAllowed oracleDatum
 
         usd_ada_rate :: Integer
         usd_ada_rate = rate oracleDatum

@@ -42,8 +42,9 @@ makeLift ''OracleParams
 
 -- Define the Oracle's datum type
 data OracleDatum = OracleDatum {
-    rate :: Integer ,
-    mintorburn :: (Bool, Bool)
+    mintAllowed :: Bool,
+    burnAllowed :: Bool,
+    rate :: Integer
 } deriving Show
 unstableMakeIsData ''OracleDatum
 
