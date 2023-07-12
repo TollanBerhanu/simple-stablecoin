@@ -16,6 +16,12 @@ module.exports = (sequelize, Sequelize) => {
       developerAddress: {
         type: Sequelize.STRING
       },
+      oracleAddress: {
+        type: Sequelize.STRING
+      },
+      reserveAddress: {
+        type: Sequelize.STRING
+      },
 
     //  Token Names
       nftTokenName: {
@@ -25,17 +31,17 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.STRING
       },
 
-    //  Currency Symbol / Policy Ids
-      nftPolicyId: {
+    //  Reference Script UTxOs
+      nftRefScript: {
         type: Sequelize.STRING
       },
-      oraclePolicyId: {
+      oracleRefScript: {
         type: Sequelize.STRING
       },
-      reservePolicyId: {
+      reserveRefScript: {
         type: Sequelize.STRING
       },
-      stablecoinPolicyId: {
+      stablecoinRefScript: {
         type: Sequelize.STRING
       }
     });
