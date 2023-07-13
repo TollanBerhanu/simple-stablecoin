@@ -48,15 +48,19 @@ data OracleDatum = OracleDatum {
 } deriving Show
 unstableMakeIsData ''OracleDatum
 
--- data OracleRedeemer = Update
--- unstableMakeIsData ''OracleRedeemer
+data OracleRedeemer = Update | Delete
+unstableMakeIsData ''OracleRedeemer
 
 {-# INLINABLE mkOracleValidator #-}
-mkOracleValidator :: OracleParams -> OracleDatum -> () -> ScriptContext -> Bool
-mkOracleValidator oParams _ _ ctx =     traceIfFalse "Update: Developer hasn't signed!" developerSigned &&
-                                        traceIfFalse "Update: NFT missing on input!" nftOnInput &&
-                                        traceIfFalse "Update: NFT missing on output!" nftOnOutput &&
-                                        traceIfFalse "Update: Invalid oracle output datum!" checkOracleOpDatum
+mkOracleValidator :: OracleParams -> OracleDatum -> OracleRedeemer -> ScriptContext -> Bool
+mkOracleValidator oParams _ r ctx = case r of
+                                        Update ->   traceIfFalse "Update: Developer hasn't signed!" developerSigned &&
+                                                    traceIfFalse "Update: NFT missing on input!" nftOnInput &&
+                                                    traceIfFalse "Update: NFT missing on output!" nftOnOutput &&
+                                                    traceIfFalse "Update: Invalid oracle output datum!" checkOracleOpDatum
+
+                                        Delete ->   traceIfFalse "Delete: Developer hasn't signed!" developerSigned &&
+                                                    traceIfFalse "Delete: NFT missing on input!" nftOnInput
                                                                 
     where
         info :: TxInfo
