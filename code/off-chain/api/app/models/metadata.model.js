@@ -31,17 +31,19 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.STRING
       },
 
+    // Last transaction hash
+      nftTxOutRef: {
+        type: Sequelize.STRING
+      },
+      oracleTxOutRef: {
+        type: Sequelize.STRING
+      },
+
     //  Reference Script UTxOs
-      nftRefScript: {
+      reserveRefScriptUTxO: {
         type: Sequelize.STRING
       },
-      oracleRefScript: {
-        type: Sequelize.STRING
-      },
-      reserveRefScript: {
-        type: Sequelize.STRING
-      },
-      stablecoinRefScript: {
+      stablecoinRefScriptUTxO: {
         type: Sequelize.STRING
       }
     });
