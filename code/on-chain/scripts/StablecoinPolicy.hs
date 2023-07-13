@@ -108,7 +108,6 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
         --     where 
         --         foldOnInputs acc x = acc + valueOf (txOutValue $ txInInfoResolved x) adaSymbol adaToken
 
-
 -- ======================================================== Boilerplate: Wrap, compile and serialize =============================================================
 {-# INLINABLE wrappedStablecoinMintingCode #-}
 wrappedStablecoinMintingCode :: BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ()

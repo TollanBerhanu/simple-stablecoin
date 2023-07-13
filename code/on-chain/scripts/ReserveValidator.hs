@@ -88,6 +88,7 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens 
         checkRightAmountConsumed :: Bool
         checkRightAmountConsumed = netAdaConsumed == requiredAdaForTokens
 
+
 -- ======================================================== Boilerplate: Wrap, compile and serialize =============================================================
 {-# INLINABLE wrappedReserveCode #-}
 wrappedReserveCode :: BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ()

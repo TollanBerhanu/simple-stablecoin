@@ -65,6 +65,7 @@ compiledNFTCode = $$(PlutusTx.compile [|| wrappedNFTPolicy ||])
 saveNFTCode :: IO()
 saveNFTCode = writeCodeToFile "./assets/nft.plutus" compiledNFTCode
 
+
 -- ========== Apply the parameters while serializing the script =============
 {-
 wrappedNFTPolicy :: TxOutRef -> BuiltinData -> BuiltinData -> ()

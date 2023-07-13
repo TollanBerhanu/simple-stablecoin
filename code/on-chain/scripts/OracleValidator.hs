@@ -104,7 +104,6 @@ saveOracleCode :: IO()
 saveOracleCode = writeCodeToFile "./assets/oracle.plutus" compiledOracleCode
 
 
-
 -- =============================================================== Helper functions for other scripts =====================================================
 
 -- ======== Code to extract the oracle datum from the reference input UTxOs ==========
