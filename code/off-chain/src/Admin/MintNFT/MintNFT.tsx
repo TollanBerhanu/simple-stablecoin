@@ -80,7 +80,7 @@ const MintNFT = () => {
                 ...metadata,
                 developerAddress: devAddress,
                 nftTokenName: tokenName,
-                nftRefScript: nftTxHash
+                nftTxOutRef: nftTxHash
             })
             
             await axios.put(`/serialized/${serialized.id}`, {

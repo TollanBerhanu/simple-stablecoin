@@ -18,7 +18,7 @@ export type AppState = {
 
   mintAllowed?: boolean;
   burnAllowed?: boolean;
-  rate?: number;
+  rate?: any;
 
   developerAddress?: string;
   oracleAddress?: string;
@@ -36,19 +36,20 @@ const initialAppState: AppState = {
     id: 0,
     mintAllowed: true,
     burnAllowed: true,
-    rate: 0,
+    rate: 0n,
     
     developerAddress: '',
     oracleAddress: '',
     reserveAddress: '',
 
-    stablecoinTokenName: '',
     nftTokenName: '',
+    stablecoinTokenName: '',
 
-    nftRefScript: '',
-    oracleRefScript: '',
-    reserveRefScript: '',
-    stablecoinRefScript: '',
+    nftTxOutRef: '',
+    oracleTxOutRef: '',
+    
+    reserveRefScriptUTxO: '',
+    stablecoinRefScriptUTxO: ''
   },
 
   serialized: {
@@ -127,10 +128,12 @@ export default function App() {
                   stablecoinTokenName: res.data.stablecoinTokenName,
                   nftTokenName: res.data.nftTokenName,
 
-                  nftRefScript: res.data.nftRefScript,
-                  oracleRefScript: res.data.oracleRefScript,
-                  reserveRefScript: res.data.reserveRefScript,
-                  stablecoinRefScript: res.data.stablecoinRefScript
+
+                  nftTxOutRef: res.data.nftTxOutRef,
+                  oracleTxOutRef: res.data.oracleTxOutRef,
+                  
+                  reserveRefScriptUTxO: res.data.reserveRefScriptUTxO,
+                  stablecoinRefScriptUTxO: res.data.stablecoinRefScriptUTxO
                 },
                 serialized: {
                   id: res2.data.id,
