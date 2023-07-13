@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { AppStateContext } from "../../App";
-import { Data, MintingPolicy, PaymentKeyHash, PolicyId, SpendingValidator, Unit, applyParamsToScript, fromText, getAddressDetails } from "lucid-cardano";
+import { Data, MintingPolicy, PaymentKeyHash, PolicyId, SpendingValidator, UTxO, Unit, applyParamsToScript, fromText, getAddressDetails } from "lucid-cardano";
 import axios from "axios";
 import { signAndSubmitTx } from "../../Utilities/utilities";
 
@@ -15,6 +15,25 @@ const UpddateOracle = () => {
     const [burnAllowed, setBurnAllowed] = useState<boolean>(metadata.burnAllowed)
     const [serializedOracle, setSerializedOracle] = useState<string>(serialized.oracle)
 
+    type GetNFTAssetClass = {
+        nftPolicyId: Unit;
+        nftTokenName: string;
+    }
+    
+    // Helper function to get the AssetClass of the NFT
+    const getNFTAssetClass = async (): Promise<GetNFTAssetClass> => {
+        const nftPolicy: MintingPolicy = {
+            type: "PlutusV2",
+            script: serializedParam.nftParam
+        };
+
+        const nftPolicyId: PolicyId = lucid!.utils.mintingPolicyToId(nftPolicy);
+        const nftTokenName = fromText(metadata.nftTokenName); 
+        // const nftAssetClass: Unit = nftPolicyId + nftTokenName;   // This is the asset class of the NFT
+        
+        return { nftPolicyId, nftTokenName }
+    }
+
     type GetFinalScript = {
         oracleValidator: SpendingValidator;
         nftAssetClass: Unit;
@@ -22,15 +41,8 @@ const UpddateOracle = () => {
 
     const getFinalScript = async (pkh: PaymentKeyHash): Promise<GetFinalScript> => {
         
-        const nftPolicy: MintingPolicy = {
-            type: "PlutusV2",
-            script: serializedParam.nftParam
-        };
-        const nftPolicyId: PolicyId = lucid!.utils.mintingPolicyToId(nftPolicy);
-        const nftTokenName = fromText(metadata.nftTokenName); 
+        const { nftPolicyId, nftTokenName } = await getNFTAssetClass()
         const nftAssetClass: Unit = nftPolicyId + nftTokenName;   // This is the asset class of the NFT
-        
-        // if (!lucid || !nftPolicyId || !nftTokenName) return;  // Get the PolicyId and TokenName from global state
 
         const Params = Data.Tuple([Data.Bytes(), Data.Bytes(), Data.Bytes()]); // NFT PolicyId (CurSym) -> NFT TokenName -> Operator PubKeyHash
         type Params = Data.Static<typeof Params>;
@@ -59,8 +71,9 @@ const UpddateOracle = () => {
         setRate(rate);          // Update rate state
     };
 
+    // Deploy the Oracle for the first time
     const deployOracle = async () => {
-        if (!lucid || currentWalletAddress != metadata.developerAddress) { // check if lucid is connected and that we have an address (our wallet is connected)
+        if (!lucid || currentWalletAddress !== metadata.developerAddress) { // check if lucid is connected and that we have an address (our wallet is connected)
             alert("Please connect to the developer's wallet!");
             return;
         }
@@ -73,38 +86,128 @@ const UpddateOracle = () => {
         }
         const oracleAddress = lucid!.utils.validatorToAddress(oracleValidator);  // Get the address of the final oracle script to send the UTxO (NFT + Datum) to
 
-        console.log("final oracle script: ", oracleValidator);
-        console.log("final oracle address: ", oracleAddress);
         const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate }
 
         const tx = await lucid! //  build the txn that deploys the oracle
             .newTx()
             .payToContract(
                 oracleAddress,
-                { inline: Data.to<OracleDatum>(oracleDatum) },  // Set the inline datum to the USD/ADA rate ... rate probably has type errors. It should be of type: TUnsafe<bigint>
+                { inline: Data.to<any>(oracleDatum, OracleDatum) },  // Set the inline datum to the USD/ADA rate ... rate probably has type errors. It should be of type: TUnsafe<bigint>
                 { [nftAssetClass]: 1n }                  // We 'pay' 1 NFT to the oracleAddress
             )
             .addSignerKey(pkh)
             .complete();
         const oracleRefUTxO = await signAndSubmitTx(tx);
 
-        axios.put(`/metadata/${metadata.id}`, {
+        await axios.put(`/metadata/${metadata.id}`, {
             ...metadata,
-            rate: rate,
+            rate: Number(rate),
             mintAllowed: mintAllowed,
             burnAllowed: burnAllowed,
             oracleAddress: oracleAddress,
-            oracleRefScript: oracleRefUTxO
+            oracleTxOutRef: oracleRefUTxO
         })
 
-        axios.put(`/serialized/${serialized.id}`, {
+        await axios.put(`/serialized/${serialized.id}`, {
             ...serialized,
             oracle: serializedOracle
         })
         
-        axios.put(`/serialized-param/${serializedParam.id}`, {
+        await axios.put(`/serialized-param/${serializedParam.id}`, {
             ...serializedParam,
             oracleParam: oracleValidator.script
+        })
+
+    };
+
+    // Helper function to get the UTxO with the NFT at the Oracle's adress
+    const getOracleNftUtxO = async (): Promise<UTxO | undefined> => {  // This function is used to get the UTxO at the oracle's address with the NFT
+
+        const { nftPolicyId, nftTokenName } = await getNFTAssetClass()
+        const nftAssetClass: Unit = nftPolicyId + nftTokenName;   // This is the asset class of the NFT
+
+        if (lucid) {
+            const oracUtxO: void | UTxO[] = await lucid.utxosAt(metadata.oracleAddress).catch((err) => {    // get all UTxOs at oracleAddress
+                console.log("Can't find Oracle UtxO");
+            });
+            if (!oracUtxO) return;
+            const oracWithNftUTxO = oracUtxO.find((utxo: UTxO) => {
+                return Object.keys(utxo.assets).some((key) => {
+                    return key === nftAssetClass;             // find the UTxO with the NFT's assetclass in its Value
+                });
+            });
+
+            return oracWithNftUTxO
+        }
+    };
+
+    // Define a type for the redeemer
+    const OracleRedeemer = Data.Enum([  
+        Data.Literal("Update"),
+        Data.Literal("Delete"),
+    ]);
+    type OracleRedeemer = Data.Static<typeof OracleRedeemer>;
+
+    // Update the Oracle
+    const updateOrDeleteOracle = async (action: string) => {
+        console.log(metadata.developerAddress)
+        const pkh: string = getAddressDetails(metadata.developerAddress).paymentCredential?.hash || ""; // Get PubKeyHash of current wallet
+
+        const { nftPolicyId, nftTokenName } = await getNFTAssetClass()
+        const nftAssetClass: Unit = nftPolicyId + nftTokenName;   // This is the asset class of the NFT
+
+        const oracleWithNftUTxO = await getOracleNftUtxO()
+
+        const oracleValidator: SpendingValidator = {
+            type: "PlutusV2",
+            script: serializedParam.oracleParam
+        };
+
+        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate }
+
+        let oracleRefUTxO = 'you should have waited'
+        
+        if(!oracleWithNftUTxO) return;
+
+        if(action === 'Update'){
+            const tx = await lucid! // Build a txn that updates the oracle
+                .newTx()
+                .collectFrom(
+                    [oracleWithNftUTxO],                                // UTXO to spend (the current UTxO with the NFT at the oracleAddress)
+                    Data.to<any>("Update", OracleRedeemer)   // Redeemer for the Oracle validator (because we are consuming a UTxO from the oracleAddress)
+                )
+                .payToContract(
+                    metadata.oracleAddress,
+                    { inline: Data.to<any>(oracleDatum, OracleDatum) },  // Set the inline datum to the USD/ADA rate ... rate probably has type errors. It should be of type: TUnsafe<bigint>
+                    { [nftAssetClass]: 1n }                  // We 'pay' 1 NFT to the oracleAddress
+                )
+                .attachSpendingValidator(oracleValidator)
+                .addSignerKey(pkh)
+                .complete();
+
+                oracleRefUTxO = await signAndSubmitTx(tx);
+        }
+        else if(action === 'Delete'){
+            const tx = await lucid!
+                .newTx()
+                .collectFrom(
+                    [oracleWithNftUTxO], // UTXO to spend
+                    Data.to<any>("Delete", OracleRedeemer) // Redeemer 
+                )
+                .payToAddress(metadata.developerAddress, { [nftAssetClass]: 1n })    // We send the NFT to our own address
+                .attachSpendingValidator(oracleValidator)
+                .addSignerKey(pkh)
+                .complete();
+
+                oracleRefUTxO = await signAndSubmitTx(tx);
+        }
+
+        await axios.put(`/metadata/${metadata.id}`, {
+            ...metadata,
+            rate: Number(rate),
+            mintAllowed: mintAllowed,
+            burnAllowed: burnAllowed,
+            oracleTxOutRef: oracleRefUTxO
         })
 
     };
@@ -125,7 +228,7 @@ const UpddateOracle = () => {
                           value={ serializedOracle } onChange={ (e) => setSerializedOracle(e.target.value) } ></textarea>
 
                 <div>
-                    <label  className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray"> USD / ADA Rate </label>
+                    <label  className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray"> USD (cents) / ADA Rate ... </label>
                     <input type="number" name="" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray-800 dark:focus:ring-blue-200 dark:focus:border-blue-200 mt-5" placeholder="Rate ..." required
                            value={ Number(rate) } onChange={ (e) => parseRate( e.target.value ) } />
                 </div>
@@ -147,7 +250,8 @@ const UpddateOracle = () => {
                     <button type="button" className="w-2/5 px-5 py-2 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 text-lg"
                             onClick={ deployOracle } > Deploy Oracle </button>
                     {/* <button type="button" className="w-2/4 px-5 py-3 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-pink-500 to-orange-400 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-pink-200 dark:focus:ring-pink-800"> Delete Oracle </button> */}
-                    <button type="button" className="w-2/5 px-5 py-2 mx-5 text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-lg">Delete Oracle</button>
+                    <button type="button" className="w-2/5 px-5 py-2 mx-5 text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-lg"
+                            onClick={ () => updateOrDeleteOracle('Delete') } >Delete Oracle</button>
 
                 {/* </div> */}
             
