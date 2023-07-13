@@ -20,7 +20,7 @@ import Plutus.V2.Ledger.Api
 import Plutus.V2.Ledger.Contexts
     ( findDatum, txSignedBy, getContinuingOutputs, scriptOutputsAt, ownCurrencySymbol, valueLockedBy, valuePaidTo, valueSpent )
 import PlutusTx
-    ( makeLift, compile, CompiledCode )
+    ( unstableMakeIsData,makeLift, compile, CompiledCode )
 import PlutusTx.Prelude
     ( Bool (..),
       Integer,
@@ -30,7 +30,7 @@ import           Prelude                    (Show, undefined, IO)
 import Plutus.V1.Ledger.Value
     ( AssetClass(AssetClass), assetClassValueOf, valueOf )
 import Utilities (wrapPolicy, writeCodeToFile)
-import OracleValidator (OracleDatum (mintorburn, rate), getOracleDatumFromRef, parseOracleDatum)
+import OracleValidator (OracleDatum (mintAllowed, burnAllowed, rate), getOracleDatumFromRef, parseOracleDatum)
 
 data StablecoinMintParams = StablecoinMintParams {
     tokenName :: TokenName ,
@@ -50,8 +50,8 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
                                                          traceIfFalse "Insufficient amount paid to reserve while minting!" checkEnoughPaidToReserve
                                                          
                                                 Burn ->  traceIfFalse "Burning is not allowed!" canBurn  && -- This is false when minting is'nt allowed, but we are minting
-                                                         traceIfFalse "You can't burn a positive value!" $ not minting &&
-                                                         traceIfFalse "You can't take that much ADA for those amount of stablecoins!" checkReceivedAmountOnBurn 
+                                                         traceIfFalse "You can't burn a positive value!" (not minting)
+                                                        --  traceIfFalse "You can't take that much ADA for those amount of stablecoins!" checkReceivedAmountOnBurn 
                                                          -- check if we are consuming UTxOs from the reserve
     where
         info :: TxInfo
@@ -90,18 +90,18 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
             where
                 amountPaidToReserve :: Integer
                 amountPaidToReserve = case scriptOutputsAt (reserveValidator tParams) info of
-                                        [(_ , v)] -> valueOf v adaSymbol adaStablecoin
+                                        [(_ , v)] -> valueOf v adaSymbol adaToken
                                         _         -> traceError "Expected exactly one UTxO to be sent to the Reserve!"
 
         -- ========= Check if the right amount of funds are consumed from the reserve when burning Stablecoins =========
 
-        checkReceivedAmountOnBurn :: Bool
-        checkReceivedAmountOnBurn = if not minting
-                                    then (paidToUser - changeToReserve) < currentAdaRequiredForStablecoin    -- The ADA you get might be lower than expected due to txn fees 
-                                    else True       -- This check is irrelevant while minting
-            where
-                paidToUser = valueOf (valuePaidTo info (developerPKH tParams)) adaSymbol adaToken
-                changeToReserve = valueOf (valueLockedBy info (reserveValidator tParams)) adaSymbol adaToken
+        -- checkReceivedAmountOnBurn :: Bool
+        -- checkReceivedAmountOnBurn = if not minting
+        --                             then (paidToUser - changeToReserve) < currentAdaRequiredForStablecoin    -- The ADA you get might be lower than expected due to txn fees 
+        --                             else True       -- This check is irrelevant while minting
+        --     where
+        --         paidToUser = valueOf (valuePaidTo info (developerPKH tParams)) adaSymbol adaToken
+        --         changeToReserve = valueOf (valueLockedBy info (reserveValidator tParams)) adaSymbol adaToken
                 -- paidToUserPKH = assetClassValueOf (valuePaidTo info (... userPKH ...)) $ AssetClass (adaSymbol, adaToken)
 
         -- totalInputAda = foldl foldOnInputs 0 (txInfoInputs info)
