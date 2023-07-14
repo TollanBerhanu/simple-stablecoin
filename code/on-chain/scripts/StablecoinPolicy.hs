@@ -30,12 +30,12 @@ import           Prelude                    (Show, undefined, IO)
 import Plutus.V1.Ledger.Value
     ( AssetClass(AssetClass), assetClassValueOf, valueOf )
 import Utilities (wrapPolicy, writeCodeToFile)
-import OracleValidator (OracleDatum (mintAllowed, burnAllowed, rate), getOracleDatumFromRef, parseOracleDatum)
+import OracleValidator (OracleDatum (mintAllowed, burnAllowed, rate, reserveValidator), getOracleDatumFromRef, parseOracleDatum)
 
 data StablecoinMintParams = StablecoinMintParams {
     tokenName :: TokenName ,
-    oracleValidator :: ValidatorHash ,
-    reserveValidator :: ValidatorHash
+    oracleValidator :: ValidatorHash
+    -- reserveValidator :: ValidatorHash
 } deriving Show
 makeLift ''StablecoinMintParams
 
@@ -44,7 +44,7 @@ unstableMakeIsData ''StablecoinRedeemer
 
 {-# INLINABLE mkStablecoinMintingpolicy #-}
 mkStablecoinMintingpolicy :: StablecoinMintParams -> StablecoinRedeemer -> ScriptContext -> Bool
-mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
+mkStablecoinMintingpolicy scParams tRedeemer ctx = case tRedeemer of
                                                 Mint ->  traceIfFalse "Minting is not allowed!" canMint && -- This is false when minting is'nt allowed, but we are minting
                                                          traceIfFalse "You can't mint a negative value!" minting &&
                                                          traceIfFalse "Insufficient amount paid to reserve while minting!" checkEnoughPaidToReserve
@@ -59,7 +59,7 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
 
         -- ======= Some Helper functions ========
         mintedAmount :: Integer
-        mintedAmount = assetClassValueOf (txInfoMint info) $ AssetClass (ownCurrencySymbol ctx, tokenName tParams)
+        mintedAmount = assetClassValueOf (txInfoMint info) $ AssetClass (ownCurrencySymbol ctx, tokenName scParams)
         
         minting :: Bool
         minting = mintedAmount > 0
@@ -69,7 +69,7 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
 
         -- ======== Extract datum data from the Oracle UTxO referenced in this txn ==========
         oracleDatum :: OracleDatum
-        oracleDatum = case getOracleDatumFromRef info (oracleValidator tParams) of
+        oracleDatum = case getOracleDatumFromRef info (oracleValidator scParams) of
                         Just d  -> d
                         Nothing -> traceError "StablecoinMintingPolicy: Invalid Oracle input datum!"
 
@@ -89,7 +89,7 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
                                     else True        -- This check is irrelevant while burning
             where
                 amountPaidToReserve :: Integer
-                amountPaidToReserve = case scriptOutputsAt (reserveValidator tParams) info of
+                amountPaidToReserve = case scriptOutputsAt (reserveValidator oracleDatum) info of
                                         [(_ , v)] -> valueOf v adaSymbol adaToken
                                         _         -> traceError "Expected exactly one UTxO to be sent to the Reserve!"
 
@@ -100,8 +100,8 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
         --                             then (paidToUser - changeToReserve) < currentAdaRequiredForStablecoin    -- The ADA you get might be lower than expected due to txn fees 
         --                             else True       -- This check is irrelevant while minting
         --     where
-        --         paidToUser = valueOf (valuePaidTo info (developerPKH tParams)) adaSymbol adaToken
-        --         changeToReserve = valueOf (valueLockedBy info (reserveValidator tParams)) adaSymbol adaToken
+        --         paidToUser = valueOf (valuePaidTo info (developerPKH scParams)) adaSymbol adaToken
+        --         changeToReserve = valueOf (valueLockedBy info (reserveValidator scParams)) adaSymbol adaToken
                 -- paidToUserPKH = assetClassValueOf (valuePaidTo info (... userPKH ...)) $ AssetClass (adaSymbol, adaToken)
 
         -- totalInputAda = foldl foldOnInputs 0 (txInfoInputs info)
@@ -110,16 +110,16 @@ mkStablecoinMintingpolicy tParams tRedeemer ctx = case tRedeemer of
 
 -- ======================================================== Boilerplate: Wrap, compile and serialize =============================================================
 {-# INLINABLE wrappedStablecoinMintingCode #-}
-wrappedStablecoinMintingCode :: BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ()
-wrappedStablecoinMintingCode tknName oracle reserve = wrapPolicy $ mkStablecoinMintingpolicy params
+wrappedStablecoinMintingCode :: BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ()
+wrappedStablecoinMintingCode tknName oracle = wrapPolicy $ mkStablecoinMintingpolicy params
     where
         params = StablecoinMintParams {
             tokenName = unsafeFromBuiltinData tknName,
-            oracleValidator = unsafeFromBuiltinData oracle,
-            reserveValidator = unsafeFromBuiltinData reserve
+            oracleValidator = unsafeFromBuiltinData oracle
+            -- reserveValidator = unsafeFromBuiltinData reserve
         }
 
-compiledStablecoinMintingCode :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ())
+compiledStablecoinMintingCode :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ())
 compiledStablecoinMintingCode = $$( compile [|| wrappedStablecoinMintingCode ||] )
 
 saveStablecoinMintingCode :: IO()
