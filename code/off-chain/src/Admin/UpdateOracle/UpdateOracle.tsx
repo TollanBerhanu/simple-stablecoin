@@ -1,19 +1,27 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { AppStateContext } from "../../App";
 import { Data, MintingPolicy, PaymentKeyHash, PolicyId, SpendingValidator, UTxO, Unit, applyParamsToScript, fromText, getAddressDetails } from "lucid-cardano";
 import axios from "axios";
 import { signAndSubmitTx } from "../../Utilities/utilities";
 
-const UpddateOracle = () => {
+const UpddateOracle = (props: any) => {
 
     const { appState, setAppState } = useContext(AppStateContext)
     const { lucid, currentWalletAddress, metadata, serialized, serializedParam } = appState
 
-    // const [rate, setRate] = useState<bigint>(metadata.rate)
-    const [rate, setRate] = useState<any>(100n)
+    const [rate, setRate] = useState<any>(0n)
+    const [rateDisp, setRateDisp] = useState<string>(metadata.rate)
     const [mintAllowed, setMintAllowed] = useState<boolean>(metadata.mintAllowed)
     const [burnAllowed, setBurnAllowed] = useState<boolean>(metadata.burnAllowed)
     const [serializedOracle, setSerializedOracle] = useState<string>(serialized.oracle)
+
+    useEffect(() => {
+        parseRate(rateDisp)
+    }, [])
+    useEffect(() => {
+        props.setOracleDeployed( metadata.oracleAddress && serialized.oracle && serializedParam.oracleParam )
+    }, [appState])
+
 
     type GetNFTAssetClass = {
         nftPolicyId: Unit;
@@ -97,7 +105,8 @@ const UpddateOracle = () => {
             )
             .addSignerKey(pkh)
             .complete();
-        const oracleRefUTxO = await signAndSubmitTx(tx);
+        // const oracleRefUTxO = await signAndSubmitTx(tx);
+        const oracleRefUTxO = 'not yet dawg'
 
         await axios.put(`/metadata/${metadata.id}`, {
             ...metadata,
@@ -116,6 +125,26 @@ const UpddateOracle = () => {
         await axios.put(`/serialized-param/${serializedParam.id}`, {
             ...serializedParam,
             oracleParam: oracleValidator.script
+        })
+
+        setAppState({
+            ...appState,
+            metadata: {
+                ...metadata,
+                rate: Number(rate),
+                mintAllowed: mintAllowed,
+                burnAllowed: burnAllowed,
+                oracleAddress: oracleAddress,
+                oracleTxOutRef: oracleRefUTxO
+            },
+            serialized: {
+                ...serialized,
+                oracle: serializedOracle
+            },
+            serializedParam: {
+                ...serializedParam,
+                oracleParam: oracleValidator.script
+            }
         })
 
     };
@@ -185,8 +214,29 @@ const UpddateOracle = () => {
                 .addSignerKey(pkh)
                 .complete();
 
-                oracleRefUTxO = await signAndSubmitTx(tx);
+            // oracleRefUTxO = await signAndSubmitTx(tx);
+            oracleRefUTxO = 'updating...'
+
+            await axios.put(`/metadata/${metadata.id}`, {
+                ...metadata,
+                rate: Number(rate),
+                mintAllowed: mintAllowed,
+                burnAllowed: burnAllowed,
+                oracleTxOutRef: oracleRefUTxO
+            })
+
+            setAppState({
+                ...appState,
+                metadata: {
+                    ...metadata,
+                    rate: Number(rate),
+                    mintAllowed: mintAllowed,
+                    burnAllowed: burnAllowed,
+                    oracleTxOutRef: oracleRefUTxO
+                }
+            })
         }
+        
         else if(action === 'Delete'){
             const tx = await lucid!
                 .newTx()
@@ -199,24 +249,54 @@ const UpddateOracle = () => {
                 .addSignerKey(pkh)
                 .complete();
 
-                oracleRefUTxO = await signAndSubmitTx(tx);
+            // oracleRefUTxO = await signAndSubmitTx(tx);
+            oracleRefUTxO = 'Deleting...'
+
+            await axios.put(`/metadata/${metadata.id}`, {
+                ...metadata,
+                rate: 0,
+                mintAllowed: false,
+                burnAllowed: false,
+                oracleAddress: null,
+                oracleTxOutRef: oracleRefUTxO
+            })
+            await axios.put(`/serialized/${serialized.id}`, {
+                ...serialized,
+                oracle: null
+            })
+            
+            await axios.put(`/serialized-param/${serializedParam.id}`, {
+                ...serializedParam,
+                oracleParam: null
+            })
+
+            setAppState({
+                ...appState,
+                metadata: {
+                    ...metadata,
+                    rate: 0,
+                    mintAllowed: false,
+                    burnAllowed: false,
+                    oracleAddress: '',
+                    oracleTxOutRef: oracleRefUTxO
+                },
+                serialized: {
+                    ...serialized,
+                    oracle: ''
+                },
+                serializedParam: {
+                    ...serializedParam,
+                    oracleParam: ''
+                }
+            })
         }
-
-        await axios.put(`/metadata/${metadata.id}`, {
-            ...metadata,
-            rate: Number(rate),
-            mintAllowed: mintAllowed,
-            burnAllowed: burnAllowed,
-            oracleTxOutRef: oracleRefUTxO
-        })
-
     };
 
     return (
         <section className="py-8 px-4 m-6">
 
             <h2 className="text-4xl font-bold text-gray-900 dark:text-gray mb-4">
-                Deploy Oracle
+                { !props.oracleDeployed ? 'Deploy' : 'Update' } Oracle
             </h2>
 
             <p className="mb-6 text-lg font-normal text-gray-500 lg:text-lg dark:text-gray-500">Some info text about the oracle ...</p>
@@ -230,7 +310,7 @@ const UpddateOracle = () => {
                 <div>
                     <label  className="block mb-2 text-sm font-medium text-gray-900 dark:text-gray"> USD (cents) / ADA Rate ... </label>
                     <input type="number" name="" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray-800 dark:focus:ring-blue-200 dark:focus:border-blue-200 mt-5" placeholder="Rate ..." required
-                           value={ Number(rate) } onChange={ (e) => parseRate( e.target.value ) } />
+                           value={ rateDisp } onChange={ (e) => { parseRate( e.target.value ); setRateDisp( e.target.value ) } } />
                 </div>
 
 
@@ -247,12 +327,20 @@ const UpddateOracle = () => {
 
 
                 {/* <div className="inline-flex justify-center"> */}
-                    <button type="button" className="w-2/5 px-5 py-2 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 text-lg"
-                            onClick={ deployOracle } > Deploy Oracle </button>
-                    {/* <button type="button" className="w-2/4 px-5 py-3 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-pink-500 to-orange-400 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-pink-200 dark:focus:ring-pink-800"> Delete Oracle </button> */}
-                    <button type="button" className="w-2/5 px-5 py-2 mx-5 text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-lg"
-                            onClick={ () => updateOrDeleteOracle('Delete') } >Delete Oracle</button>
-
+                {/* <button type="button" className="w-2/4 px-5 py-3 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-pink-500 to-orange-400 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-pink-200 dark:focus:ring-pink-800"> Delete Oracle </button> */}
+                {
+                    !props.oracleDeployed ? 
+                        <button type="button" className="w-2/5 px-5 py-2 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 text-lg"
+                                onClick={ deployOracle } > Deploy Oracle </button>
+                    :
+                    <>
+                        <button type="button" className="w-2/5 px-5 py-2 mx-5 text-gray-700 bg-gradient-to-r from-teal-500 to-lime-300 hover:bg-gradient-to-l hover:from-teal-400 hover:to-lime-300 focus:ring-4 focus:outline-none focus:ring-lime-200 dark:focus:ring-teal-700 font-medium rounded-lg text-lg"
+                                onClick={ () => updateOrDeleteOracle('Update') } >Update Oracle</button>
+    
+                        <button type="button" className="w-2/5 px-5 py-2 mx-5 text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-lg"
+                                onClick={ () => updateOrDeleteOracle('Delete') } >Delete Oracle</button>
+                    </>
+                }
                 {/* </div> */}
             
             </form>
