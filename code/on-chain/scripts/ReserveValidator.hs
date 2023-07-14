@@ -34,12 +34,12 @@ import Plutus.V1.Ledger.Value
     ( AssetClass(AssetClass), assetClassValueOf, adaSymbol, valueOf )
 import Data.Aeson (Value(Bool))
 import Utilities (wrapValidator, writeCodeToFile)
-import OracleValidator (OracleDatum (rate), getOracleDatumFromRef, lovelaceValueOf)
+import OracleValidator (OracleDatum (rate, stablecoinMintingPolicy), getOracleDatumFromRef, lovelaceValueOf)
 import Plutus.V1.Ledger.Address (scriptHashAddress)
 
 
 data ReserveParams = ReserveParams {
-    tokenMintingPolicy :: AssetClass ,
+    -- stablecoinMintingPolicy :: AssetClass ,
     oracleValidator :: ValidatorHash ,
     developerPKH :: PubKeyHash
 }
@@ -53,8 +53,10 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens 
         info :: TxInfo
         info = scriptContextTxInfo ctx
 
-        oracleDatum :: Maybe OracleDatum
-        oracleDatum = getOracleDatumFromRef info (oracleValidator rParams)
+        oracleDatum :: OracleDatum
+        oracleDatum = case getOracleDatumFromRef info (oracleValidator rParams) of
+                            Just dtm -> dtm
+                            Nothing  -> traceError "ReserveValidator: Invalid input Oracle Datum!"
 
         -- ========= Check if the developer has signed ===========
         developerSigned :: Bool
@@ -74,15 +76,13 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens 
 
         -- ========= Check if there are sufficient tokens burnt for the amount of ADA unlocked ===========
         requiredAdaForTokens :: Integer    -- Bool
-        requiredAdaForTokens = case oracleDatum of
-                                    Just d -> (totalTokensBurnt * 1_000_000) `divide` rate d    -- < totalAdaProduced
-                                    Nothing  -> traceError "ReserveValidator: Invalid 'rate' on Oracle Datum!"
+        requiredAdaForTokens = (totalTokensBurnt * 1_000_000) `divide` rate oracleDatum    -- < totalAdaProduced
             where 
                 -- totalAdaProduced :: Integer
                 -- totalAdaProduced = assetClassValueOf (valueProduced info) (AssetClass (adaSymbol, adaToken))
 
                 totalTokensBurnt :: Integer
-                totalTokensBurnt = negate $ assetClassValueOf (txInfoMint info) (tokenMintingPolicy rParams)
+                totalTokensBurnt = negate $ assetClassValueOf (txInfoMint info) (stablecoinMintingPolicy oracleDatum)
     
         -- ========= Check if the right amount of funds are consumed from the reserve when burning Tokens =========
         checkRightAmountConsumed :: Bool
@@ -91,16 +91,16 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens 
 
 -- ======================================================== Boilerplate: Wrap, compile and serialize =============================================================
 {-# INLINABLE wrappedReserveCode #-}
-wrappedReserveCode :: BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ()
-wrappedReserveCode tkn_mint_pol oracle_val dev_PKH = wrapValidator $ mkReserveValidator params
+wrappedReserveCode :: BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ()
+wrappedReserveCode oracle_val dev_PKH = wrapValidator $ mkReserveValidator params
     where
         params = ReserveParams {
-            tokenMintingPolicy = unsafeFromBuiltinData tkn_mint_pol ,
+            -- stablecoinMintingPolicy = unsafeFromBuiltinData tkn_mint_pol ,
             oracleValidator = unsafeFromBuiltinData oracle_val ,
             developerPKH = unsafeFromBuiltinData dev_PKH
         }
 
-compiledReserveCode :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ())
+compiledReserveCode :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ())
 compiledReserveCode = $$( compile [|| wrappedReserveCode ||] )
 
 saveReserveCode :: IO()
