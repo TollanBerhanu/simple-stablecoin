@@ -65,21 +65,52 @@ const UpddateOracle = (props: any) => {
         return {oracleValidator, nftAssetClass};    // return the oracle validator
     };
 
-    // ======= Helper function to cast the rate type to bigint
     const OracleDatum = Data.Object({   // Define the datatype of the collateral datum
         mintAllowed: Data.Boolean(),
         burnAllowed: Data.Boolean(),
         rate: Data.Integer(),
+        
+        reserveValidatorHash: Data.Bytes(),         // ValidatorHash
+        stablecoinAssetClass: Data.Bytes(),     // AssetClass
+        paymentPKH: Data.Bytes()                // PubKeyHash
     });
     type OracleDatum = Data.Static<typeof OracleDatum>;
-
+    
+    // ======= Helper function to cast the rate type to bigint
     const parseRate = (r: string) => {      // Convert rate from string to a bigint number
         const rate = BigInt(Number(r));
         if (Number.isNaN(rate)) alert('Invalid rate!');
         setRate(rate);          // Update rate state
     };
 
-    // Deploy the Oracle for the first time
+    const getReserveValidaorHash = async (): Promise<string | undefined> => {
+        const reserveValidator: SpendingValidator = {
+            type: "PlutusV2",
+            script: serializedParam.reserveParam
+        };
+
+        return await lucid!.utils.validatorToScriptHash(
+                reserveValidator
+            );
+    }
+
+    const getStablecoinAssetClass = async (): Promise<string | undefined> => {
+        const stablecoinPolicy: MintingPolicy = {
+            type: "PlutusV2",
+            script: serializedParam.stablecoinParam
+        };
+
+        const stablecoinPolicyId: PolicyId = lucid!.utils.mintingPolicyToId(stablecoinPolicy);
+        const stablecoinTokenName = fromText(metadata.stablecoinTokenName); 
+        
+        return stablecoinPolicyId + stablecoinTokenName;
+    }
+
+    const getPaymentPKH = (): string => {
+        return getAddressDetails(metadata.developerAddress).paymentCredential?.hash || '';
+    }
+
+    // ********************************************************************************** DEPLOY THE ORACLE **********************************************************************************
     const deployOracle = async () => {
         if (!lucid || currentWalletAddress !== metadata.developerAddress) { // check if lucid is connected and that we have an address (our wallet is connected)
             alert("Please connect to the developer's wallet!");
@@ -94,7 +125,13 @@ const UpddateOracle = (props: any) => {
         }
         const oracleAddress = lucid!.utils.validatorToAddress(oracleValidator);  // Get the address of the final oracle script to send the UTxO (NFT + Datum) to
 
-        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate }
+        
+        const reserveValidatorHash = await getReserveValidaorHash()
+        const stablecoinAssetClass = await getStablecoinAssetClass()
+        const paymentPKH = getPaymentPKH()
+
+        if (!reserveValidatorHash || !stablecoinAssetClass) return;
+        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate, reserveValidatorHash, stablecoinAssetClass, paymentPKH }
 
         const tx = await lucid! //  build the txn that deploys the oracle
             .newTx()
@@ -105,8 +142,9 @@ const UpddateOracle = (props: any) => {
             )
             .addSignerKey(pkh)
             .complete();
-        // const oracleRefUTxO = await signAndSubmitTx(tx);
-        const oracleRefUTxO = 'not yet dawg'
+        const oracleRefUTxO = await signAndSubmitTx(tx);
+        // const oracleRefUTxO = 'not yet dawg'
+        
 
         await axios.put(`/metadata/${metadata.id}`, {
             ...metadata,
@@ -177,7 +215,7 @@ const UpddateOracle = (props: any) => {
     ]);
     type OracleRedeemer = Data.Static<typeof OracleRedeemer>;
 
-    // Update the Oracle
+    // ********************************************************************************** UPDATE THE ORACLE **********************************************************************************
     const updateOrDeleteOracle = async (action: string) => {
         console.log(metadata.developerAddress)
         const pkh: string = getAddressDetails(metadata.developerAddress).paymentCredential?.hash || ""; // Get PubKeyHash of current wallet
@@ -192,7 +230,12 @@ const UpddateOracle = (props: any) => {
             script: serializedParam.oracleParam
         };
 
-        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate }
+        const reserveValidatorHash = await getReserveValidaorHash()
+        const stablecoinAssetClass = await getStablecoinAssetClass()
+        const paymentPKH = getPaymentPKH()
+        
+        if (!reserveValidatorHash || !stablecoinAssetClass) return;
+        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate, reserveValidatorHash, stablecoinAssetClass, paymentPKH }
 
         let oracleRefUTxO = 'you should have waited'
         
@@ -339,6 +382,9 @@ const UpddateOracle = (props: any) => {
     
                         <button type="button" className="w-2/5 px-5 py-2 mx-5 text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-lg"
                                 onClick={ () => updateOrDeleteOracle('Delete') } >Delete Oracle</button>
+
+                        <button type="button" className="w-2/5 px-5 py-2 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 text-lg"
+                                onClick={ deployOracle } > Deploy Oracle </button>
                     </>
                 }
                 {/* </div> */}

@@ -7,6 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE NumericUnderscores     #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module StablecoinPolicy where
 
