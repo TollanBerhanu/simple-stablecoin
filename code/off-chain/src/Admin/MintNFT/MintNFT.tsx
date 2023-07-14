@@ -4,8 +4,8 @@ import {
     Data,
     MintingPolicy,
     fromText,
-    PolicyId, UTxO, Unit, 
-    Lucid, Blockfrost, TxComplete, TxHash, Address 
+    PolicyId, UTxO, Unit,
+    TxComplete, TxHash, Address 
 } from "lucid-cardano";
 import { AppStateContext } from "../../App";
 import axios from "axios";
@@ -14,7 +14,7 @@ import axios from "axios";
 const MintNFT = () => {
 
     const { appState, setAppState } = useContext(AppStateContext)
-    const { lucid, currentWalletAddress, metadata, serialized, serializedParam } = appState
+    const { lucid, metadata, serialized, serializedParam } = appState
 
     const [tokenName, setTokenName] = useState<string>(metadata.nftTokenName)
     const [devAddress, setDevAddress] = useState<Address>(metadata.developerAddress)  // useEffect(() => { setDevAddress(metadata.developerAddress) }, [metadata.developerAddress])
@@ -91,6 +91,25 @@ const MintNFT = () => {
             await axios.put(`/serialized-param/${serializedParam.id}`, {
                 ...serializedParam,
                 nftParam: nftPolicy.script
+            })
+
+            setAppState({
+                ...appState,
+                metadata: {
+                    ...metadata,
+                    developerAddress: devAddress,
+                    nftTokenName: tokenName,
+                    nftTxOutRef: nftTxHash
+
+                },
+                serialized: {
+                    ...serialized,
+                    nft: serializedNFT
+                },
+                serializedParam: {
+                    ...serializedParam,
+                    nftParam: nftPolicy.script
+                }
             })
         }
     };

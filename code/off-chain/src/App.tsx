@@ -13,21 +13,9 @@ export type AppState = {
   lucid?: Lucid;
   currentWalletAddress?: Address;
   
-  nftTokenName?: string;
-  stablecoinTokenName?: string;
-
-  mintAllowed?: boolean;
-  burnAllowed?: boolean;
-  rate?: any;
-
-  developerAddress?: string;
-  oracleAddress?: string;
-  reserveAddress?: string;
-
   metadata?: any;
   serialized?: any;
   serializedParam?: any;
-  
 }
 // *********************************************************************************************************
 
@@ -139,14 +127,14 @@ export default function App() {
                   id: res2.data.id,
                   nft: res2.data.nft,
                   oracle: res2.data.oracle,
-                  reserve: res2.data.res2erve,
+                  reserve: res2.data.reserve,
                   stablecoin: res2.data.stablecoin,
                 },
                 serializedParam: {
                   id: res3.data.id,
                   nftParam: res3.data.nftParam,
                   oracleParam: res3.data.oracleParam,
-                  reserveParam: res3.data.res2erveParam,
+                  reserveParam: res3.data.reserveParam,
                   stablecoinParam: res3.data.stablecoinParam,
 
                 }
