@@ -44,7 +44,11 @@ makeLift ''OracleParams
 data OracleDatum = OracleDatum {
     mintAllowed :: Bool,
     burnAllowed :: Bool,
-    rate :: Integer
+    rate :: Integer,
+
+    reserveValidator :: ValidatorHash,
+    stablecoinMintingPolicy :: AssetClass,
+    paymentPKH :: PubKeyHash    -- PubKeyHash of the address user's will pay to when minting Stablecoins
 } deriving Show
 unstableMakeIsData ''OracleDatum
 
