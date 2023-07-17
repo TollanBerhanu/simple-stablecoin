@@ -42,12 +42,12 @@ const UpddateOracle = (props: any) => {
         return { nftPolicyId, nftTokenName }
     }
 
-    type GetFinalScript = {
+    type GetFinalOraScript = {
         oracleValidator: SpendingValidator;
         nftAssetClass: Unit;
     };
 
-    const getFinalScript = async (pkh: PaymentKeyHash): Promise<GetFinalScript> => {
+    const getFinalOraScript = async (pkh: PaymentKeyHash): Promise<GetFinalOraScript> => {
         
         const { nftPolicyId, nftTokenName } = await getNFTAssetClass()
         const nftAssetClass: Unit = nftPolicyId + nftTokenName;   // This is the asset class of the NFT
@@ -71,7 +71,8 @@ const UpddateOracle = (props: any) => {
         rate: Data.Integer(),
         
         reserveValidatorHash: Data.Bytes(),         // ValidatorHash
-        stablecoinAssetClass: Data.Bytes(),     // AssetClass
+        stablecoinPolicyId: Data.Bytes(),     // Policy Id
+        stablecoinTokenName: Data.Bytes(),     // TokenName
         paymentPKH: Data.Bytes()                // PubKeyHash
     });
     type OracleDatum = Data.Static<typeof OracleDatum>;
@@ -94,7 +95,12 @@ const UpddateOracle = (props: any) => {
             );
     }
 
-    const getStablecoinAssetClass = async (): Promise<string | undefined> => {
+    type GetStablecoinAssetClass = {
+        stablecoinPolicyId: PolicyId;
+        stablecoinTokenName: string;
+    }
+
+    const getStablecoinAssetClass = async (): Promise<GetStablecoinAssetClass> => {
         const stablecoinPolicy: MintingPolicy = {
             type: "PlutusV2",
             script: serializedParam.stablecoinParam
@@ -103,10 +109,10 @@ const UpddateOracle = (props: any) => {
         const stablecoinPolicyId: PolicyId = lucid!.utils.mintingPolicyToId(stablecoinPolicy);
         const stablecoinTokenName = fromText(metadata.stablecoinTokenName); 
         
-        return stablecoinPolicyId + stablecoinTokenName;
+        return { stablecoinPolicyId , stablecoinTokenName }
     }
 
-    const getPaymentPKH = (): string => {
+    const getPaymentPKH = (): PaymentKeyHash => {
         return getAddressDetails(metadata.developerAddress).paymentCredential?.hash || '';
     }
 
@@ -117,7 +123,7 @@ const UpddateOracle = (props: any) => {
             return;
         }
         const pkh: string = getAddressDetails(metadata.developerAddress).paymentCredential?.hash || ""; // Get the PubKeyHash of our address's paymentCredential
-        const { oracleValidator, nftAssetClass } = await getFinalScript(pkh);   // Use our pubkeyHash as a parameter to the script
+        const { oracleValidator, nftAssetClass } = await getFinalOraScript(pkh);   // Use our pubkeyHash as a parameter to the script
 
         if (!oracleValidator || !serializedParam.nftParam) {
             alert("Please mint NFT first!");
@@ -127,11 +133,11 @@ const UpddateOracle = (props: any) => {
 
         
         const reserveValidatorHash = await getReserveValidaorHash()
-        const stablecoinAssetClass = await getStablecoinAssetClass()
+        const { stablecoinPolicyId, stablecoinTokenName } = await getStablecoinAssetClass()
         const paymentPKH = getPaymentPKH()
 
-        if (!reserveValidatorHash || !stablecoinAssetClass) return;
-        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate, reserveValidatorHash, stablecoinAssetClass, paymentPKH }
+        if (!reserveValidatorHash) return;
+        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate, reserveValidatorHash, stablecoinPolicyId, stablecoinTokenName, paymentPKH }
 
         const tx = await lucid! //  build the txn that deploys the oracle
             .newTx()
@@ -231,11 +237,11 @@ const UpddateOracle = (props: any) => {
         };
 
         const reserveValidatorHash = await getReserveValidaorHash()
-        const stablecoinAssetClass = await getStablecoinAssetClass()
+        const { stablecoinPolicyId, stablecoinTokenName } = await getStablecoinAssetClass()
         const paymentPKH = getPaymentPKH()
         
-        if (!reserveValidatorHash || !stablecoinAssetClass) return;
-        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate, reserveValidatorHash, stablecoinAssetClass, paymentPKH }
+        if (!reserveValidatorHash) return;
+        const oracleDatum: OracleDatum = { mintAllowed, burnAllowed, rate, reserveValidatorHash, stablecoinPolicyId, stablecoinTokenName, paymentPKH }
 
         let oracleRefUTxO = 'you should have waited'
         
