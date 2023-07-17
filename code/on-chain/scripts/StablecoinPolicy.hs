@@ -31,7 +31,7 @@ import           Prelude                    (Show, undefined, IO)
 import Plutus.V1.Ledger.Value
     ( AssetClass(AssetClass), assetClassValueOf, valueOf )
 import Utilities (wrapPolicy, writeCodeToFile)
-import OracleValidator (OracleDatum (mintAllowed, burnAllowed, rate, reserveValidator), getOracleDatumFromRef, parseOracleDatum)
+import OracleValidator (OracleDatum (mintAllowed, burnAllowed, rate, reserveValidatorHash), getOracleDatumFromRef, parseOracleDatum)
 
 data StablecoinMintParams = StablecoinMintParams {
     tokenName :: TokenName ,
@@ -90,7 +90,7 @@ mkStablecoinMintingpolicy scParams tRedeemer ctx = case tRedeemer of
                                     else True        -- This check is irrelevant while burning
             where
                 amountPaidToReserve :: Integer
-                amountPaidToReserve = case scriptOutputsAt (reserveValidator oracleDatum) info of
+                amountPaidToReserve = case scriptOutputsAt (reserveValidatorHash oracleDatum) info of
                                         [(_ , v)] -> valueOf v adaSymbol adaToken
                                         _         -> traceError "Expected exactly one UTxO to be sent to the Reserve!"
 

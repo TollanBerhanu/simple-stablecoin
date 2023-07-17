@@ -16,7 +16,7 @@ import Plutus.V2.Ledger.Api
       Datum(Datum),
       TxInfo (txInfoOutputs, TxInfo, txInfoReferenceInputs, txInfoMint),
       OutputDatum(OutputDatumHash, NoOutputDatum, OutputDatum),
-      TxOut(txOutDatum, txOutValue, txOutAddress), BuiltinData, Validator, mkValidatorScript, UnsafeFromData (unsafeFromBuiltinData), TxInInfo (txInInfoResolved, TxInInfo), CurrencySymbol, ValidatorHash, adaSymbol, adaToken, Value )
+      TxOut(txOutDatum, txOutValue, txOutAddress), BuiltinData, Validator, mkValidatorScript, UnsafeFromData (unsafeFromBuiltinData), TxInInfo (txInInfoResolved, TxInInfo), CurrencySymbol, ValidatorHash, adaSymbol, adaToken, Value, TokenName )
 import Plutus.V2.Ledger.Contexts
     ( findDatum, txSignedBy, getContinuingOutputs, findOwnInput, valueSpent, valueProduced, valuePaidTo, scriptOutputsAt, valueLockedBy )
 import PlutusTx
@@ -46,8 +46,9 @@ data OracleDatum = OracleDatum {
     burnAllowed :: Bool,
     rate :: Integer,
 
-    reserveValidator :: ValidatorHash,
-    stablecoinMintingPolicy :: AssetClass,
+    reserveValidatorHash :: ValidatorHash,
+    stablecoinPolicyId :: CurrencySymbol,
+    stablecoinTokenName :: TokenName,
     paymentPKH :: PubKeyHash    -- PubKeyHash of the address user's will pay to when minting Stablecoins
 } deriving Show
 unstableMakeIsData ''OracleDatum
