@@ -117,6 +117,62 @@ const UpddateOracle = (props: any) => {
     }
 
     // ********************************************************************************** DEPLOY THE ORACLE **********************************************************************************
+    const preDeployOracle = async () => {
+        if (!lucid || currentWalletAddress !== metadata.developerAddress) { // check if lucid is connected and that we have an address (our wallet is connected)
+            alert("Please connect to the developer's wallet!");
+            return;
+        }
+        const pkh: string = getAddressDetails(metadata.developerAddress).paymentCredential?.hash || ""; // Get the PubKeyHash of our address's paymentCredential
+        const { oracleValidator, nftAssetClass } = await getFinalOraScript(pkh);   // Use our pubkeyHash as a parameter to the script
+
+        if (!oracleValidator || !serializedParam.nftParam) {
+            alert("Please mint NFT first!");
+            return;
+        }
+        const oracleAddress = lucid!.utils.validatorToAddress(oracleValidator);  // Get the address of the final oracle script to send the UTxO (NFT + Datum) to
+
+
+        await axios.put(`/metadata/${metadata.id}`, {
+            ...metadata,
+            // rate: Number(rate),
+            // mintAllowed: mintAllowed,
+            // burnAllowed: burnAllowed,
+            oracleAddress: oracleAddress,
+            // oracleTxOutRef: oracleRefUTxO
+        })
+
+        await axios.put(`/serialized/${serialized.id}`, {
+            ...serialized,
+            oracle: serializedOracle
+        })
+        
+        await axios.put(`/serialized-param/${serializedParam.id}`, {
+            ...serializedParam,
+            oracleParam: oracleValidator.script
+        })
+
+        setAppState({
+            ...appState,
+            metadata: {
+                ...metadata,
+                // rate: Number(rate),
+                // mintAllowed: mintAllowed,
+                // burnAllowed: burnAllowed,
+                oracleAddress: oracleAddress,
+                // oracleTxOutRef: oracleRefUTxO
+            },
+            serialized: {
+                ...serialized,
+                oracle: serializedOracle
+            },
+            serializedParam: {
+                ...serializedParam,
+                oracleParam: oracleValidator.script
+            }
+        })
+
+    };
+
     const deployOracle = async () => {
         if (!lucid || currentWalletAddress !== metadata.developerAddress) { // check if lucid is connected and that we have an address (our wallet is connected)
             alert("Please connect to the developer's wallet!");
@@ -263,8 +319,8 @@ const UpddateOracle = (props: any) => {
                 .addSignerKey(pkh)
                 .complete();
 
-            // oracleRefUTxO = await signAndSubmitTx(tx);
-            oracleRefUTxO = 'updating...'
+            oracleRefUTxO = await signAndSubmitTx(tx);
+            // oracleRefUTxO = 'updating...'
 
             await axios.put(`/metadata/${metadata.id}`, {
                 ...metadata,
@@ -298,8 +354,8 @@ const UpddateOracle = (props: any) => {
                 .addSignerKey(pkh)
                 .complete();
 
-            // oracleRefUTxO = await signAndSubmitTx(tx);
-            oracleRefUTxO = 'Deleting...'
+            oracleRefUTxO = await signAndSubmitTx(tx);
+            // oracleRefUTxO = 'Deleting...'
 
             await axios.put(`/metadata/${metadata.id}`, {
                 ...metadata,
@@ -380,7 +436,7 @@ const UpddateOracle = (props: any) => {
                 {
                     !props.oracleDeployed ? 
                         <button type="button" className="w-2/5 px-5 py-2 mx-5 text-base font-medium text-center text-white rounded-lg bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 text-lg"
-                                onClick={ deployOracle } > Deploy Oracle </button>
+                                onClick={ preDeployOracle } > Pre-Deploy Oracle </button>
                     :
                     <>
                         <button type="button" className="w-2/5 px-5 py-2 mx-5 text-gray-700 bg-gradient-to-r from-teal-500 to-lime-300 hover:bg-gradient-to-l hover:from-teal-400 hover:to-lime-300 focus:ring-4 focus:outline-none focus:ring-lime-200 dark:focus:ring-teal-700 font-medium rounded-lg text-lg"
