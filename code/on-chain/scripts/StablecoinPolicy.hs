@@ -45,15 +45,15 @@ unstableMakeIsData ''StablecoinRedeemer
 
 {-# INLINABLE mkStablecoinMintingpolicy #-}
 mkStablecoinMintingpolicy :: StablecoinMintParams -> StablecoinRedeemer -> ScriptContext -> Bool
-mkStablecoinMintingpolicy scParams tRedeemer ctx = case tRedeemer of
-                                                Mint ->  traceIfFalse "Minting is not allowed!" canMint && -- This is false when minting is'nt allowed, but we are minting
-                                                         traceIfFalse "You can't mint a negative value!" minting &&
-                                                         traceIfFalse "Insufficient amount paid to reserve while minting!" checkEnoughPaidToReserve
-                                                         
-                                                Burn ->  traceIfFalse "Burning is not allowed!" canBurn  && -- This is false when minting is'nt allowed, but we are minting
-                                                         traceIfFalse "You can't burn a positive value!" (not minting)
-                                                        --  traceIfFalse "You can't take that much ADA for those amount of stablecoins!" checkReceivedAmountOnBurn 
-                                                         -- check if we are consuming UTxOs from the reserve
+mkStablecoinMintingpolicy scParams tRedeemer ctx = case tRedeemer of 
+                                                        Mint ->  traceIfFalse "Minting is not allowed!" canMint && -- This is false when minting is'nt allowed, but we are minting
+                                                                traceIfFalse "You can't mint a negative value!" minting &&
+                                                                traceIfFalse "Insufficient amount paid to reserve while minting!" checkEnoughPaidToReserve
+                                                                
+                                                        Burn ->  traceIfFalse "Burning is not allowed!" canBurn  && -- This is false when minting is'nt allowed, but we are minting
+                                                                traceIfFalse "You can't burn a positive value!" (not minting) 
+                                                                -- traceIfFalse "You can't take that much ADA for those amount of stablecoins!" checkReceivedAmountOnBurn 
+                                                                -- check if we are consuming UTxOs from the reserve
     where
         info :: TxInfo
         info = scriptContextTxInfo ctx
@@ -101,9 +101,9 @@ mkStablecoinMintingpolicy scParams tRedeemer ctx = case tRedeemer of
         --                             then (paidToUser - changeToReserve) < currentAdaRequiredForStablecoin    -- The ADA you get might be lower than expected due to txn fees 
         --                             else True       -- This check is irrelevant while minting
         --     where
-        --         paidToUser = valueOf (valuePaidTo info (developerPKH scParams)) adaSymbol adaToken
+        --         -- paidToUser = valueOf (valuePaidTo info (developerPKH scParams)) adaSymbol adaToken
         --         changeToReserve = valueOf (valueLockedBy info (reserveValidator scParams)) adaSymbol adaToken
-                -- paidToUserPKH = assetClassValueOf (valuePaidTo info (... userPKH ...)) $ AssetClass (adaSymbol, adaToken)
+        --         paidToUserPKH = assetClassValueOf (valuePaidTo info (... userPKH ...)) $ AssetClass (adaSymbol, adaToken)
 
         -- totalInputAda = foldl foldOnInputs 0 (txInfoInputs info)
         --     where 

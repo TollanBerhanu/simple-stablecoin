@@ -31,10 +31,10 @@ import PlutusTx.Prelude
       )
 import           Prelude                    (Show (show), undefined, IO, Ord ((>)), lookup)
 import Plutus.V1.Ledger.Value
-    ( AssetClass(AssetClass), assetClassValueOf, adaSymbol, valueOf )
+    ( AssetClass(AssetClass), assetClassValueOf, adaSymbol, valueOf, assetClass )
 import Data.Aeson (Value(Bool))
 import Utilities (wrapValidator, writeCodeToFile)
-import OracleValidator (OracleDatum (rate, stablecoinMintingPolicy), getOracleDatumFromRef, lovelaceValueOf)
+import OracleValidator (OracleDatum (rate, stablecoinPolicyId, stablecoinTokenName), getOracleDatumFromRef, lovelaceValueOf)
 import Plutus.V1.Ledger.Address (scriptHashAddress)
 
 
@@ -47,7 +47,7 @@ makeLift ''ReserveParams
 
 {-# INLINABLE  mkReserveValidator #-}
 mkReserveValidator :: ReserveParams -> () -> () -> ScriptContext -> Bool
-mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens to access the reserve unless you are an admin!" developerSigned  ||
+mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens to access the reserve unless you are an admin!" developerSigned  &&
                                         traceIfFalse "The net value of ADA consumed doesn't match the required amount!" checkRightAmountConsumed
     where
         info :: TxInfo
@@ -69,7 +69,7 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens 
                 totalInputAda :: Integer            -- This should be the total amount of Ada UTxOs we consume from the ReserveValidator while burning
                 totalInputAda = foldl (\acc x -> acc + lovelaceValueOf (txOutValue $ txInInfoResolved x)) 0 allInputs
                     where allInputs = txInfoInputs info             -- This is the list of all the input UTxOs of the txn (the ones we consume from the Reserve)
-            
+
                 totalOutputAda :: Integer           -- This should be the change we are giving back to the ReserveValidator while burning
                 totalOutputAda = foldl (\acc x -> acc + lovelaceValueOf (txOutValue x)) 0 allOutputs
                     where allOutputs = getContinuingOutputs ctx     -- This is the list of all the output UTxOs we pay to the Reserve (the change we give back) 
@@ -77,13 +77,13 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "You must burn your tokens 
         -- ========= Check if there are sufficient tokens burnt for the amount of ADA unlocked ===========
         requiredAdaForTokens :: Integer    -- Bool
         requiredAdaForTokens = (totalTokensBurnt * 1_000_000) `divide` rate oracleDatum    -- < totalAdaProduced
-            where 
+            where
                 -- totalAdaProduced :: Integer
                 -- totalAdaProduced = assetClassValueOf (valueProduced info) (AssetClass (adaSymbol, adaToken))
 
                 totalTokensBurnt :: Integer
-                totalTokensBurnt = negate $ assetClassValueOf (txInfoMint info) (stablecoinMintingPolicy oracleDatum)
-    
+                totalTokensBurnt = negate $ assetClassValueOf (txInfoMint info) (assetClass (stablecoinPolicyId oracleDatum) (stablecoinTokenName oracleDatum))
+
         -- ========= Check if the right amount of funds are consumed from the reserve when burning Tokens =========
         checkRightAmountConsumed :: Bool
         checkRightAmountConsumed = netAdaConsumed == requiredAdaForTokens
