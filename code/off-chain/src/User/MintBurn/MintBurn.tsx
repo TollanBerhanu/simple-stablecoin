@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { AppStateContext } from "../../App";
-import { Data, MintingPolicy, PolicyId, UTxO, Unit, fromText, getAddressDetails } from "lucid-cardano";
+import { Data, MintingPolicy, PolicyId, SpendingValidator, UTxO, Unit, fromText, getAddressDetails } from "lucid-cardano";
 import { findUTxO, signAndSubmitTx } from "../../Utilities/utilities";
 
 const MintBurn = (props: any) => {
@@ -21,6 +21,25 @@ const MintBurn = (props: any) => {
         Data.Literal("Burn")
     ]);
     type MintBurnRedeemer = Data.Static<typeof MintBurnRedeemer>;
+
+    const getStablecoinPolicy = async (): Promise<MintingPolicy | undefined> => {
+        const stablecoinPolicy: MintingPolicy = {
+            type: "PlutusV2",
+            script: serializedParam.stablecoinParam
+        };
+        
+        return stablecoinPolicy
+    }
+
+    const getReserveValidator = async (): Promise<SpendingValidator | undefined> => {
+        const reserveValidator: SpendingValidator = {
+            type: "PlutusV2",
+            script: serializedParam.reserveParam
+        };
+        
+        return reserveValidator
+    }
+
 
     const getStablecoinAssetClass = async (): Promise<string | undefined> => {
         const stablecoinPolicy: MintingPolicy = {
@@ -70,6 +89,7 @@ const MintBurn = (props: any) => {
         const oracleWithNftUTxO = await getOracleNftUtxO()
         const stablecoinPolicyRef = await findUTxO(lucid!, metadata.stablecoinRefScriptUTxO + '#0');
         const oracleNFTUTxO = await findUTxO(lucid!, metadata.oracleTxOutRef + '#0');
+        const stablecoinPolicy = await getStablecoinPolicy()
 
         
         // if (!currentWalletAddress || !lucid || !stablecoinAssetClass) return;
@@ -80,19 +100,20 @@ const MintBurn = (props: any) => {
 
         const tx = await lucid!
             .newTx()
-            .readFrom([oracleNFTUTxO, stablecoinPolicyRef])    // We explicitly read the UTxO containing the Oracle
-            .payToContract(
-                reserveAddress,
-                {
-                     inline: Data.void(),
-                },
-                { lovelace: amount * BigInt(metadata.rate) * 1000000n }    // We get the 'collValueToLock' from the UI and convert it to lovelace
-            )
+            // .readFrom([stablecoinPolicyRef])    // We explicitly read the UTxO containing stablecoin policy
+            // .payToContract(
+            //     reserveAddress,
+            //     {
+            //          inline: Data.void(),
+            //     },
+            //     { lovelace: amount * BigInt(metadata.rate) * 1000000n }    // We get the 'collValueToLock' from the UI and convert it to lovelace
+            // )
             .mintAssets(                                    // We mint the stablecoin in the same txn
                 { [stablecoinAssetClass!]: amount },            // [AssetClass]: amount
                 Data.to<any>("Mint", MintBurnRedeemer)     // "Value", datatype
             )
             .addSignerKey(pkh)
+            .attachMintingPolicy(stablecoinPolicy!)
             .complete();
 
         await signAndSubmitTx(tx);
@@ -131,6 +152,8 @@ const MintBurn = (props: any) => {
         const stablecoinPolicyRef = await findUTxO(lucid!, metadata.stablecoinRefScriptUTxO + '#0');
         const reserveValidatorRef = await findUTxO(lucid!, metadata.reserveRefScriptUTxO + '#0');
         const oracleNFTUTxO = await findUTxO(lucid!, metadata.oracleTxOutRef + '#0');
+        const stablecoinPolicy = await getStablecoinPolicy()
+        const reserveValidator = await getReserveValidator()
         const reserveUtxOs = await collectReserveUTxOs()
         const totalAda = reserveUtxOs!.reduce((total, utxo) => total + utxo.assets.lovelace, 0n)
         console.log('From burn1: ', reserveUtxOs)
@@ -138,30 +161,32 @@ const MintBurn = (props: any) => {
       
         const reserveAddress = metadata.reserveAddress
 
-        if (!currentWalletAddress || !lucid || !stablecoinAssetClass) return;
+        if (!reserveUtxOs || !currentWalletAddress || !lucid || !stablecoinAssetClass) return;
         
         const pkh: string = getAddressDetails(currentWalletAddress!).paymentCredential?.hash || ''; // get current address's PubKeyHash
 
-        const tx = await lucid!
+        const tx = await lucid
             .newTx()
-            .readFrom([ oracleNFTUTxO, stablecoinPolicyRef, reserveValidatorRef ])           // We explicitly read the UTxO containing the Reference scripts and the Oracle
+            // .readFrom([ oracleNFTUTxO, stablecoinPolicyRef, reserveValidatorRef ])           // We explicitly read the UTxO containing the Reference scripts and the Oracle
             .collectFrom(
-                reserveUtxOs!,                                        // We explicitly input the UTxOs in the reserve address
+                reserveUtxOs,                                        // We explicitly input the UTxOs in the reserve address
                 Data.to<any>("Burn", MintBurnRedeemer)      // We provide the appropriate redeemer
             )
-            .payToContract(
-                reserveAddress,
-                {
-                     inline: Data.void(),
-                },
-                { lovelace: totalAda - (amount * BigInt(metadata.rate) * 1000000n) }    // We get the 'collValueToLock' from the UI and convert it to lovelace
-            )
+            // .payToContract(
+            //     reserveAddress,
+            //     {
+            //          inline: Data.void(),
+            //     },
+            //     { lovelace: totalAda - (amount * BigInt(metadata.rate) * 1000000n) }    // We get the 'collValueToLock' from the UI and convert it to lovelace
+            // )
             // .payToAddress(metadata.developerAddress, { lovelace: 2n })
             .mintAssets(                                    // We mint the stablecoin in the same txn
-                { [stablecoinAssetClass!]: amount },            // [AssetClass]: amount
+                { [stablecoinAssetClass]: -amount },            // [AssetClass]: amount
                 Data.to<any>("Burn", MintBurnRedeemer)     // "Value", datatype
             )
             .addSignerKey(pkh)
+            .attachMintingPolicy(stablecoinPolicy!)
+            .attachSpendingValidator(reserveValidator!)
             .complete();
 
         await signAndSubmitTx(tx);
@@ -182,13 +207,17 @@ const MintBurn = (props: any) => {
                     <input type="number" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-4/5 p-2.5 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray dark:focus:ring-blue-200 dark:focus:border-blue-200" placeholder="Amount" required
                            value={ Number(amount) } onChange={ (e) => setAmount( BigInt(e.target.value) ) } />
                 </div>
-                <button type="button" className ={buttonStyle} onClick={ burnStablecoin } >
+                <button type="button" className ={buttonStyle} onClick={ mintStablecoin } >
                     { name }
                 </button>
 
 
                 <button type="button" className ={buttonStyle} onClick={ collectReserveUTxOs } >
-                    { name } something
+                    Try something
+                </button>
+
+                <button type="button" className ={buttonStyle} onClick={ burnStablecoin } >
+                    Burn something
                 </button>
             
             </form>
