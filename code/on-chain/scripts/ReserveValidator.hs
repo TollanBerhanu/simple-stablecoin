@@ -45,31 +45,17 @@ data ReserveParams = ReserveParams {
 }
 makeLift ''ReserveParams
 
--- Convert from an integer to its text representation. Example: 123 => "123"
--- {-# INLINEABLE integerToBS #-}
--- integerToBS :: Integer -> BuiltinByteString
--- integerToBS x
---     -- 45 is ASCII code for '-'
---     | x < 0 = consByteString 45 $ integerToBS (negate x)
---     -- x is single-digit
---     | x `quotient` 10 == 0 = digitToBS x
---     | otherwise = integerToBS (x `quotient` 10) <> digitToBS (x `remainder` 10)
---     where
---         digitToBS :: Integer -> BuiltinByteString
---         -- 48 is ASCII code for '0'
---         digitToBS d = consByteString (d + 48) emptyByteString
-
 {-# INLINABLE  mkReserveValidator #-}
 mkReserveValidator :: ReserveParams -> () -> () -> ScriptContext -> Bool
 mkReserveValidator rParams _ _ ctx =    traceIfFalse "ReserveValidator: You must burn your tokens to access the reserve unless you are an admin!" developerSigned  ||
-                                        -- traceIfFalse "The net value of ADA consumed doesn't match the required amount!" checkRightAmountConsumed
+                                        -- traceIfFalse "The net value of ADA consumed from the Reserve exceeds the required amount!" checkRightAmountConsumed
                                         traceIfFalse ( appendString
                                                     (appendString ("ReqAda: " `appendString` decodeUtf8 (integerToBS requiredAdaForTokens)) (" *** NetAda: " `appendString` decodeUtf8 (integerToBS netAdaConsumed)))
                                                     (appendString ("\nTotalIp: " `appendString` decodeUtf8 (integerToBS totalInputFromReserve)) (" *** TotalOp: " `appendString` decodeUtf8 (integerToBS totalOutputToReserve)))
                                                     )
                                                         checkRightAmountConsumed
     where
-        -- {-# INLINEABLE integerToBS #-}
+        -- Convert from an integer to its text representation. Example: 123 => "123"
         integerToBS :: Integer -> BuiltinByteString
         integerToBS x
             -- 45 is ASCII code for '-'
@@ -78,9 +64,9 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "ReserveValidator: You must
             | x `quotient` 10 == 0 = digitToBS x
             | otherwise = integerToBS (x `quotient` 10) <> digitToBS (x `remainder` 10)
             where
-                digitToBS :: Integer -> BuiltinByteString
-                -- 48 is ASCII code for '0'
-                digitToBS d = consByteString (d + 48) emptyByteString
+                    digitToBS :: Integer -> BuiltinByteString
+                    -- 48 is ASCII code for '0'
+                    digitToBS d = consByteString (d + 48) emptyByteString
 
         info :: TxInfo
         info = scriptContextTxInfo ctx
@@ -94,47 +80,45 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "ReserveValidator: You must
         developerSigned :: Bool
         developerSigned = txSignedBy info $ developerPKH rParams
 
+
         -- =========== Calculate the net Ada consumed by the user when burning Stablecoins =========
-        ownAddress :: Address
-        ownAddress = case findOwnInput ctx of
-                        Just txin -> txOutAddress $ txInInfoResolved txin
-                        Nothing -> traceError "ReserveValidator: You are not spending any UTxO from the Reserve!"
-
-        totalOutputAda :: Integer           -- This should be the change we are giving back to the ReserveValidator while burning
-        totalOutputAda = foldl (\acc x -> acc + lovelaceValueOf (txOutValue x)) 0 allOutputs
-            where allOutputs = getContinuingOutputs ctx     -- This is the list of all the output UTxOs we pay to the Reserve (the change we give back) 
-
             
         totalInputFromReserve :: Integer            -- This should be the total amount of Ada UTxOs we consume from the ReserveValidator while burning
         totalInputFromReserve = foldl (\acc x -> acc + filterByAddress (txInInfoResolved x)) 0 allInputs
             where 
                     allInputs = txInfoInputs info             -- This is the list of all the input UTxOs of the txn (the ones we consume from the Reserve)
 
+                    ownAddress :: Address
+                    ownAddress = case findOwnInput ctx of
+                                    Just txin -> txOutAddress $ txInInfoResolved txin
+                                    Nothing -> traceError "ReserveValidator: You are not spending any UTxO from the Reserve!"
+
                     filterByAddress :: TxOut -> Integer
-                    filterByAddress txout = if txOutAddress txout ==  ownAddress
+                    filterByAddress txout = if txOutAddress txout == ownAddress
                                                 then lovelaceValueOf (txOutValue txout)
                                                 else 0
+        -- totalOutputAda :: Integer 
+        -- totalOutputAda = foldl (\acc x -> acc + lovelaceValueOf (txOutValue x)) 0 allOutputs
+        --     where allOutputs = getContinuingOutputs ctx     -- This is the list of all the output UTxOs we pay to the Reserve (the change we give back) 
 
-        totalOutputToReserve :: Integer
-        totalOutputToReserve = assetClassValueOf (valueLockedBy info (ownHash ctx)) (assetClass adaSymbol adaToken)
+        totalOutputToReserve :: Integer          -- This should be the change we are giving back to the ReserveValidator while burning
+        totalOutputToReserve = lovelaceValueOf (valueLockedBy info (ownHash ctx))
 
-        netAdaConsumed :: Integer       -- Net ADA = (the total ada values of UTxOs coumed from the reserve) - (the change we give back to the reserve) - (the txn fee paid by the user)
-        netAdaConsumed = totalInputFromReserve - totalOutputToReserve -- valueOf (txInfoFee info) adaSymbol adaToken
+        netAdaConsumed :: Integer               -- Net ADA = (the total ada values of UTxOs coumed from the reserve) - (the change we give back to the reserve)
+        netAdaConsumed = totalInputFromReserve - totalOutputToReserve
 
 
         -- ========= Check if there are sufficient tokens burnt for the amount of ADA unlocked ===========
         requiredAdaForTokens :: Integer    -- Bool
         requiredAdaForTokens = (totalTokensBurnt * 1_000_000) * rate oracleDatum    -- < totalAdaProduced
             where
-                -- totalAdaProduced :: Integer
-                -- totalAdaProduced = assetClassValueOf (valueProduced info) (AssetClass (adaSymbol, adaToken))
+                    totalTokensBurnt :: Integer
+                    totalTokensBurnt = negate $ assetClassValueOf (txInfoMint info) (assetClass (stablecoinPolicyId oracleDatum) (stablecoinTokenName oracleDatum))
 
-                totalTokensBurnt :: Integer
-                totalTokensBurnt = negate $ assetClassValueOf (txInfoMint info) (assetClass (stablecoinPolicyId oracleDatum) (stablecoinTokenName oracleDatum))
 
         -- ========= Check if the right amount of funds are consumed from the reserve when burning Tokens =========
         checkRightAmountConsumed :: Bool
-        checkRightAmountConsumed = netAdaConsumed >= requiredAdaForTokens
+        checkRightAmountConsumed = requiredAdaForTokens >= netAdaConsumed   -- You can consume at most the required amount from the reserve
 
 
 -- ======================================================== Boilerplate: Wrap, compile and serialize =============================================================
@@ -142,11 +126,11 @@ mkReserveValidator rParams _ _ ctx =    traceIfFalse "ReserveValidator: You must
 wrappedReserveCode :: BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ()
 wrappedReserveCode oracle_val dev_PKH = wrapValidator $ mkReserveValidator params
     where
-        params = ReserveParams {
-            -- stablecoinMintingPolicy = unsafeFromBuiltinData tkn_mint_pol ,
-            oracleValidator = unsafeFromBuiltinData oracle_val ,
-            developerPKH = unsafeFromBuiltinData dev_PKH
-        }
+            params = ReserveParams {
+                -- stablecoinMintingPolicy = unsafeFromBuiltinData tkn_mint_pol ,
+                oracleValidator = unsafeFromBuiltinData oracle_val ,
+                developerPKH = unsafeFromBuiltinData dev_PKH
+            }
 
 compiledReserveCode :: CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> BuiltinData -> ())
 compiledReserveCode = $$( compile [|| wrappedReserveCode ||] )
