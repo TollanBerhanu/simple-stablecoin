@@ -7,6 +7,7 @@ import {
 import Layout from './Layout/Layout';
 import { Address, Blockfrost, Lucid, MintingPolicy } from 'lucid-cardano';
 import axios from 'axios';
+import blockfrostKey from './Utilities/blockfrost-key';
 
 // ***************************************** Global App State **********************************************
 export type AppState = {
@@ -70,7 +71,7 @@ export default function App() {
     const lucid = await Lucid.new(
           new Blockfrost(
               "https://cardano-preview.blockfrost.io/api/v0",
-              'previewTboSqp1nB894P6wgrGA1PBv8rgUvIS5v'
+              blockfrostKey
           ),
           "Preview"
       );
