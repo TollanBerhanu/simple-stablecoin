@@ -5,7 +5,7 @@ import { findUTxO, signAndSubmitTx } from "../../Utilities/utilities";
 
 const MintBurn = (props: any) => {
 
-    const name = props.info.name
+    const name: string = props.info.name
     const icon = props.info.icon
     const buttonStyle = name === 'Mint' ? 'w-1/4 px-5 py-3 text-gray-700 font-bold bg-gradient-to-br font-medium rounded-lg text-lg text-center from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800' :
                                          'w-1/4 px-5 py-3 text-gray-700 font-bold bg-gradient-to-br font-medium rounded-lg text-lg text-center from-pink-500 to-orange-400 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-pink-200 dark:focus:ring-pink-800'
@@ -94,6 +94,7 @@ const MintBurn = (props: any) => {
         console.log('************** UTxOs: *************')
         console.log(oracleWithNftUTxO)
         console.log(oracleNFTUTxO)
+        console.log(stablecoinPolicyRef)
 
         
         // if (!currentWalletAddress || !lucid || !stablecoinAssetClass) return;
@@ -211,18 +212,22 @@ const MintBurn = (props: any) => {
                     <input type="number" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-4/5 p-2.5 dark:bg-gray-300 dark:border-gray-600 dark:placeholder-gray-700 dark:text-gray dark:focus:ring-blue-200 dark:focus:border-blue-200" placeholder="Amount" required
                            value={ Number(amount) } onChange={ (e) => setAmount( BigInt(e.target.value) ) } />
                 </div>
-                <button type="button" className ={buttonStyle} onClick={ mintStablecoin } >
+                <button type="button" className ={buttonStyle} onClick={ (name == 'Mint') ? mintStablecoin : burnStablecoin } >
                     { name }
                 </button>
 
+                {/* <br />
+                <button type="button" className ={'w-1/2 bg-gray-200' + buttonStyle} onClick={ collectReserveUTxOs } >
+                    Reserve UTxOs
+                </button> */}
 
-                <button type="button" className ={buttonStyle} onClick={ collectReserveUTxOs } >
-                    Try something
+                {/* <button type="button" className ={buttonStyle} onClick={ (name == 'Mint') ? mintStablecoin : burnStablecoin } >
+                    Mint
                 </button>
 
                 <button type="button" className ={buttonStyle} onClick={ burnStablecoin } >
                     Burn
-                </button>
+                </button> */}
             
             </form>
 
