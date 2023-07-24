@@ -25,7 +25,7 @@ import PlutusTx
 import PlutusTx.Prelude
     ( Bool (..),
       Integer,
-      Maybe(..), traceIfFalse, ($), (&&), not, traceError, fst, snd, Ord ((>), (<)), (||), (*), divide, (-)
+      Maybe(..), traceIfFalse, ($), (&&), not, traceError, fst, snd, Ord ((>), (<), (>=)), (||), (*), divide, (-)
       )
 import           Prelude                    (Show, undefined, IO)
 import Plutus.V1.Ledger.Value
@@ -66,7 +66,7 @@ mkStablecoinMintingpolicy scParams tRedeemer ctx = case tRedeemer of
         minting = mintedAmount > 0
         
         currentAdaRequiredForStablecoin :: Integer  -- This is the number of ADA required for the amount of Stablecoins we Mint/Burn.
-        currentAdaRequiredForStablecoin = (mintedAmount * 1_000_000) `divide` usd_ada_rate
+        currentAdaRequiredForStablecoin = (mintedAmount * 1_000_000) * usd_ada_rate
 
         -- ======== Extract datum data from the Oracle UTxO referenced in this txn ==========
         oracleDatum :: OracleDatum
@@ -86,7 +86,7 @@ mkStablecoinMintingpolicy scParams tRedeemer ctx = case tRedeemer of
         -- ========= Check if sufficient funds are sent to the reserve when minting Stablecoins =========
         checkEnoughPaidToReserve :: Bool
         checkEnoughPaidToReserve = if minting 
-                                    then amountPaidToReserve > currentAdaRequiredForStablecoin                   -- We don't mind if you send more ADA ;)
+                                    then amountPaidToReserve >= currentAdaRequiredForStablecoin                   -- We don't mind if you send more ADA ;)
                                     else True        -- This check is irrelevant while burning
             where
                 amountPaidToReserve :: Integer
