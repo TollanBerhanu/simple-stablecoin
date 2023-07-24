@@ -1,10 +1,15 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { AppStateContext } from "../../App";
 
 const ConnectWallet = (props: {dbState: Boolean}) => {
 
     const { appState, setAppState } = useContext(AppStateContext)
-    const { lucid, currentWalletAddress } = appState
+    const { lucid, currentWalletAddress, metadata } = appState
+
+    const [nftMinted, setNftMinted] = useState<boolean>( metadata.nftTxOutRef !== '' )
+    const [oracleDeployed, setOracleDeployed] = useState<boolean>( metadata.nftTxOutRef !== '' )
+    const [reserveDeployed, setReserveDeployed] = useState<boolean>( metadata.nftTxOutRef !== '' )
+    const [stablecoinDeployed, setStablecoinDeployed] = useState<boolean>( metadata.nftTxOutRef !== '' )
 
     const refreshWallet = async () => {
         if (!lucid || !window.cardano.nami) return;
@@ -16,6 +21,12 @@ const ConnectWallet = (props: {dbState: Boolean}) => {
         });
     };
 
+    const tickOrCross = (val: boolean) => {
+        return val ?
+            'Yes'
+        :
+            'No'
+    }
     
     return (
         <div className="w-full max-w-sm bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 my-20 mx-20">
@@ -37,49 +48,45 @@ const ConnectWallet = (props: {dbState: Boolean}) => {
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
-                            <th scope="col" className="px-6 py-3">
-                                Attribute
+                            <th scope="col" className="px-8 py-3">
+                                App State
                             </th>
                             <th scope="col" className="px-6 py-3">
-                                Value1
-                            </th>
-                            <th scope="col" className="px-6 py-3">
-                                Value2
+                                Value
                             </th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr className="bg-white border-b dark:bg-gray-900 dark:border-gray-700">
                             <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                Field
+                                NFT Minted
                             </th>
                             <td className="px-6 py-4">
-                                Val1
-                            </td>
-                            <td className="px-6 py-4">
-                                Val2
+                                { tickOrCross(nftMinted) }
                             </td>
                         </tr>
                         <tr className="border-b bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
                             <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                Field
+                                Oracle Deployed
                             </th>
                             <td className="px-6 py-4">
-                                Val1
-                            </td>
-                            <td className="px-6 py-4">
-                                Val2
+                                { tickOrCross(oracleDeployed) }
                             </td>
                         </tr>
                         <tr className="bg-white border-b dark:bg-gray-900 dark:border-gray-700">
                             <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                Field
+                                Reserve Deployed
                             </th>
                             <td className="px-6 py-4">
-                                Val1
+                                { tickOrCross(reserveDeployed) }
                             </td>
+                        </tr>
+                        <tr className="bg-white border-b dark:bg-gray-900 dark:border-gray-700">
+                            <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                Stablecoin Deployed
+                            </th>
                             <td className="px-6 py-4">
-                                Val2
+                                { tickOrCross(stablecoinDeployed) }
                             </td>
                         </tr>
                     </tbody>
