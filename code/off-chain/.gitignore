@@ -12,7 +12,7 @@
 /build
 
 # blockfrost key
-/src/Utilities/blockfrost-key.ts
+# /src/Utilities/blockfrost-key.ts
 
 # misc
 .DS_Store
